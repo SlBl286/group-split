@@ -1,0 +1,147 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  username           String   @unique
+  passwordHash       String
+  displayName        String
+  avatar             String?
+  createdAt          DateTime @default(now())
+
+  // Bank Info for sharing and scanning QR
+  bankName           String?
+  accountNumber      String?
+  accountName        String?
+  sepayWebhookSecret String?
+
+  ownedGroups        Group[]        @relation("GroupOwner")
+  groupMemberships   GroupMember[]
+  paidExpenses       Expense[]      @relation("ExpensePaidBy")
+  createdExpenses    Expense[]      @relation("ExpenseCreatedBy")
+  expenseSplits      ExpenseSplit[]
+  settlementsFrom    Settlement[]   @relation("SettlementFrom")
+  settlementsTo      Settlement[]   @relation("SettlementTo")
+  sepayTransactions  SepayTransaction[]
+}
+
+model Group {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  inviteCode  String   @unique @default(cuid())
+  currency    String   @default("VND")
+  createdAt   DateTime @default(now())
+
+  owner   User   @relation("GroupOwner", fields: [ownerId], references: [id])
+  ownerId String
+
+  members     GroupMember[]
+  expenses    Expense[]
+  settlements Settlement[]
+}
+
+model GroupMember {
+  id       String     @id @default(cuid())
+  role     MemberRole @default(MEMBER)
+  joinedAt DateTime   @default(now())
+
+  user    User   @relation(fields: [userId], references: [id])
+  userId  String
+  group   Group  @relation(fields: [groupId], references: [id])
+  groupId String
+
+  @@unique([userId, groupId])
+}
+
+enum MemberRole {
+  OWNER
+  MEMBER
+}
+
+model Expense {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  amount      Float
+  splitType   SplitType     @default(EQUAL)
+  status      ExpenseStatus @default(PENDING)
+  date        DateTime      @default(now())
+  createdAt   DateTime      @default(now())
+
+  group   Group  @relation(fields: [groupId], references: [id])
+  groupId String
+
+  paidBy   User   @relation("ExpensePaidBy", fields: [paidById], references: [id])
+  paidById String
+
+  createdBy   User   @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  createdById String
+
+  splits ExpenseSplit[]
+}
+
+enum SplitType {
+  EQUAL
+  CUSTOM
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model ExpenseSplit {
+  id     String @id @default(cuid())
+  amount Float
+  isPaid Boolean @default(false)
+
+  expense   Expense @relation(fields: [expenseId], references: [id])
+  expenseId String
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  @@unique([expenseId, userId])
+}
+
+model Settlement {
+  id          String   @id @default(cuid())
+  amount      Float
+  note        String?
+  isConfirmed Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  group   Group  @relation(fields: [groupId], references: [id])
+  groupId String
+
+  fromUser   User   @relation("SettlementFrom", fields: [fromUserId], references: [id])
+  fromUserId String
+
+  toUser   User   @relation("SettlementTo", fields: [toUserId], references: [id])
+  toUserId String
+}
+
+model SepayTransaction {
+  id              String   @id // ID từ SePay (dùng làm khóa chống trùng)
+  gateway         String
+  transactionDate DateTime
+  accountNumber   String
+  transferType    String
+  transferAmount  Float
+  content         String
+  createdAt       DateTime @default(now())
+
+  user            User     @relation(fields: [userId], references: [id])
+  userId          String
+}
