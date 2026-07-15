@@ -6,14 +6,18 @@ ALTER TABLE "User" ADD COLUMN "sepayWebhookSecret" TEXT;
 
 -- CreateTable
 CREATE TABLE "SepayTransaction" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "gateway" TEXT NOT NULL,
-    "transactionDate" DATETIME NOT NULL,
+    "transactionDate" TIMESTAMPTZ NOT NULL,
     "accountNumber" TEXT NOT NULL,
     "transferType" TEXT NOT NULL,
-    "transferAmount" REAL NOT NULL,
+    "transferAmount" DOUBLE PRECISION NOT NULL,
     "content" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "userId" TEXT NOT NULL,
-    CONSTRAINT "SepayTransaction_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+
+    CONSTRAINT "SepayTransaction_pkey" PRIMARY KEY ("id")
 );
+
+-- AddForeignKey
+ALTER TABLE "SepayTransaction" ADD CONSTRAINT "SepayTransaction_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
