@@ -8,6 +8,7 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - AUTH_TRUST_HOST=true
     volumes:
       - ./uploads:/app/public/uploads                     # Bind mount lưu trữ ảnh avatar thực tế của người dùng
     networks:
