@@ -5,42 +5,16 @@ services:
     build: .
     restart: always
     environment:
-      - DATABASE_URL=postgresql://postgres:mysecretpassword@db:5432/groupsplit?schema=public
-      - NEXTAUTH_SECRET=9a48f76378e9b6a12df387ef98acdebf  # Bạn nên đổi thành khóa ngẫu nhiên của mình
-      - NEXTAUTH_URL=http://groupsplit.local              # Domain chạy qua proxy của bạn
+      - DATABASE_URL=${DATABASE_URL}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
     volumes:
       - ./uploads:/app/public/uploads                     # Bind mount lưu trữ ảnh avatar thực tế của người dùng
-    depends_on:
-      db:
-        condition: service_healthy
     networks:
       - proxy-net                                         # Network chung kết nối với Proxy (Nginx Proxy Manager, Traefik...)
-      - db-net                                            # Network nội bộ bảo mật kết nối với PostgreSQL
     # Không expose port ra ngoài máy host (bảo mật tối đa, traffic đi hoàn toàn qua proxy network)
-
-  db:
-    image: postgres:15-alpine
-    restart: always
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=mysecretpassword
-      - POSTGRES_DB=groupsplit
-    volumes:
-      - db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d groupsplit"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - db-net
-
-volumes:
-  db-data:
 
 networks:
   proxy-net:
     external: true
     name: proxy                                           # Hãy đổi thành tên network proxy thật trên Portainer của bạn (ví dụ: proxy, nginx-pm...)
-  db-net:
-    internal: true

@@ -29,5 +29,5 @@ COPY --from=builder /app/prisma ./prisma
 # Đảm bảo thư mục upload tồn tại và cấp quyền đầy đủ
 RUN mkdir -p public/uploads
 
-# Next.js chạy ngầm, không expose port ra ngoài và phục vụ qua proxy network
-CMD ["bun", "run", "start"]
+# Chạy migrations trước khi start ứng dụng
+CMD ["sh", "-c", "bun prisma migrate deploy && bun run start"]
