@@ -52,7 +52,7 @@ export async function POST(
 
     // 4. Parse JSON payload
     const data = JSON.parse(body);
-    if (!data || !data.id) {
+    if (!data || data.id === undefined || data.id === null) {
       return NextResponse.json({ success: false, message: "Invalid payload" }, { status: 400 });
     }
 
