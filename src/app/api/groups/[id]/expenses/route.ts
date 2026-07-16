@@ -37,7 +37,7 @@ export async function POST(
       date: date ? new Date(date) : new Date(),
       groupId,
       createdById: userId,
-      status: "PENDING",
+      status: membership.role === "OWNER" ? "APPROVED" : "PENDING",
       splits: {
         create: splits.map((s: { userId: string; amount: number }) => ({
           userId: s.userId,
