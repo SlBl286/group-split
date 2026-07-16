@@ -12,9 +12,14 @@ export default auth((req) => {
   const isPublicRoute = publicRoutes.some((route) => pathname === route);
   const isInviteRoute = pathname.startsWith("/groups/join/");
   const isApiAuth = pathname.startsWith("/api/auth");
+  const isWebhookRoute = pathname.startsWith("/api/webhook/");
+  const isUploadsRoute = pathname.startsWith("/uploads/");
 
+  // Bỏ qua xác thực cho api auth, các routes công khai, webhook từ sepay và các tệp tải lên
   if (isApiAuth) return NextResponse.next();
-  if (isPublicRoute || isInviteRoute) return NextResponse.next();
+  if (isPublicRoute || isInviteRoute || isWebhookRoute || isUploadsRoute) {
+    return NextResponse.next();
+  }
 
   if (!isLoggedIn) {
     return NextResponse.redirect(new URL("/login", req.nextUrl));
