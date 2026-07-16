@@ -8,8 +8,13 @@ export async function POST(
   { params }: { params: Promise<{ userId: string }> }
 ) {
   const { userId } = await params;
+  console.log(`[SePay Webhook] Nhận yêu cầu POST cho userId: ${userId}`);
 
   try {
+    // 2. Lấy raw body text và các headers bảo mật
+    const body = await req.text();
+    console.log(`[SePay Webhook] Raw Body: ${body}`);
+
     // 1. Lấy thông tin user nhận tiền (Owner) để lấy webhook secret
     const owner = await prisma.user.findUnique({
       where: { id: userId },
@@ -21,8 +26,6 @@ export async function POST(
       return NextResponse.json({ success: false, message: "User not configured" }, { status: 400 });
     }
 
-    // 2. Lấy raw body text và các headers bảo mật
-    const body = await req.text();
     const signature = req.headers.get("x-sepay-signature") || "";
     const timestampHeader = req.headers.get("x-sepay-timestamp") || "0";
     const timestamp = Number(timestampHeader);
