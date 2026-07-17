@@ -86,21 +86,34 @@ export function Sidebar() {
   );
 }
 
-// Floating button to create new group
+// Floating button to create new group or add expense contextually
 export function FloatingCreateGroupButton() {
   const pathname = usePathname();
 
-  // Hide the floating button on the group creation page itself
-  if (pathname === "/groups/new") return null;
+  // Hide the floating button on the group creation, join, or new expense pages
+  if (
+    pathname === "/groups/new" || 
+    pathname.includes("/expenses/new") || 
+    pathname.includes("/groups/join")
+  ) {
+    return null;
+  }
+
+  // Check if we are inside a specific group detail page: /groups/[id]
+  const groupMatch = pathname.match(/^\/groups\/([^/]+)$/);
+  const isGroupDetail = groupMatch && groupMatch[1] !== "new" && groupMatch[1] !== "join";
+
+  const href = isGroupDetail ? `/groups/${groupMatch[1]}/expenses/new` : "/groups/new";
+  const label = isGroupDetail ? "Thêm hoá đơn" : "Tạo nhóm mới";
 
   return (
     <Link
-      href="/groups/new"
+      href={href}
       className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 flex items-center justify-center w-14 h-14 md:w-auto md:h-12 md:px-4 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 hover:shadow-primary/20 hover:shadow-xl gap-2 group/fab"
-      aria-label="Tạo nhóm mới"
+      aria-label={label}
     >
       <Plus className="h-6 w-6 transition-transform group-hover/fab:rotate-90 duration-300" />
-      <span className="hidden md:inline text-sm font-semibold tracking-wide">Tạo nhóm mới</span>
+      <span className="hidden md:inline text-sm font-semibold tracking-wide">{label}</span>
     </Link>
   );
 }

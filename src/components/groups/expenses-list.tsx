@@ -27,6 +27,7 @@ interface Expense {
   status: string;
   date: string;
   category: string;
+  categoryIcon?: string;
   paidBy: {
     displayName: string;
   };
@@ -163,7 +164,7 @@ export function ExpensesList({ expenses, isOwner, groupId, currentUserId, curren
                         <div className="flex items-center gap-2 flex-wrap mb-1">
                           <h3 className="font-medium text-sm">{expense.title}</h3>
                           <Badge variant="secondary" className="text-[11px] font-medium py-0 px-2 h-5">
-                            {categoryEmojis[expense.category] || "📦"} {expense.category}
+                            {expense.categoryIcon || categoryEmojis[expense.category] || "📦"} {expense.category}
                           </Badge>
                           <div className="flex items-center gap-1">
                             {statusIcon[expense.status as keyof typeof statusIcon]}

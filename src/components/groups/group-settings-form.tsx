@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils/format";
 import { toast } from "sonner";
 import { Loader2, Settings, Camera } from "lucide-react";
+import { CategorySettings } from "./category-settings";
 
 interface GroupSettingsFormProps {
   group: {
@@ -85,84 +86,88 @@ export function GroupSettingsForm({ group }: GroupSettingsFormProps) {
     avatarFile !== null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base font-bold flex items-center gap-2">
-          <Settings className="h-4 w-4 text-primary" />
-          Cài đặt thông tin nhóm
-        </CardTitle>
-        <CardDescription className="text-xs">
-          Thay đổi ảnh đại diện, tên nhóm và mô tả chi tiết của nhóm.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Avatar and Name */}
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <div className="relative group shrink-0">
-              <Avatar className="h-20 w-20 border-2 border-primary/20 shadow-sm">
-                <AvatarImage src={avatarPreview || undefined} alt={name} className="object-cover" />
-                <AvatarFallback className="bg-muted text-foreground text-xl font-bold">
-                  {getInitials(name || "G")}
-                </AvatarFallback>
-              </Avatar>
-              <Label
-                htmlFor="group-avatar-upload"
-                className="absolute inset-0 flex items-center justify-center bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-xs font-semibold gap-1"
-              >
-                <Camera className="h-4 w-4" />
-                Thay đổi
-              </Label>
-              <input
-                id="group-avatar-upload"
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarChange}
-                className="hidden"
-              />
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-bold flex items-center gap-2">
+            <Settings className="h-4 w-4 text-primary" />
+            Cài đặt thông tin nhóm
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Thay đổi ảnh đại diện, tên nhóm và mô tả chi tiết của nhóm.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Avatar and Name */}
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <div className="relative group shrink-0">
+                <Avatar className="h-20 w-20 border-2 border-primary/20 shadow-sm">
+                  <AvatarImage src={avatarPreview || undefined} alt={name} className="object-cover" />
+                  <AvatarFallback className="bg-muted text-foreground text-xl font-bold">
+                    {getInitials(name || "G")}
+                  </AvatarFallback>
+                </Avatar>
+                <Label
+                  htmlFor="group-avatar-upload"
+                  className="absolute inset-0 flex items-center justify-center bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-xs font-semibold gap-1"
+                >
+                  <Camera className="h-4 w-4" />
+                  Thay đổi
+                </Label>
+                <input
+                  id="group-avatar-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  className="hidden"
+                />
+              </div>
+
+              <div className="space-y-1.5 flex-1 w-full">
+                <Label htmlFor="group-name" className="text-sm font-semibold">Tên nhóm *</Label>
+                <Input
+                  id="group-name"
+                  placeholder="Nhập tên nhóm..."
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="h-11 font-medium"
+                />
+              </div>
             </div>
 
-            <div className="space-y-1.5 flex-1 w-full">
-              <Label htmlFor="group-name" className="text-sm font-semibold">Tên nhóm *</Label>
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label htmlFor="group-desc" className="text-sm font-semibold">Mô tả nhóm</Label>
               <Input
-                id="group-name"
-                placeholder="Nhập tên nhóm..."
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="h-11 font-medium"
+                id="group-desc"
+                placeholder="Nhập mô tả nhóm (ví dụ: Quỹ ăn trưa phòng IT)..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="h-11"
               />
             </div>
-          </div>
 
-          {/* Description */}
-          <div className="space-y-1.5">
-            <Label htmlFor="group-desc" className="text-sm font-semibold">Mô tả nhóm</Label>
-            <Input
-              id="group-desc"
-              placeholder="Nhập mô tả nhóm (ví dụ: Quỹ ăn trưa phòng IT)..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="h-11"
-            />
-          </div>
+            <Button
+              type="submit"
+              disabled={loading || !hasChanges}
+              className="w-full sm:w-auto font-bold h-10 px-6 cursor-pointer"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Đang lưu...
+                </>
+              ) : (
+                "Lưu thay đổi"
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
-          <Button
-            type="submit"
-            disabled={loading || !hasChanges}
-            className="w-full sm:w-auto font-bold h-10 px-6 cursor-pointer"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Đang lưu...
-              </>
-            ) : (
-              "Lưu thay đổi"
-            )}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+      <CategorySettings groupId={group.id} />
+    </div>
   );
 }

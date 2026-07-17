@@ -55,6 +55,7 @@ model Group {
   expenses        Expense[]
   settlements     Settlement[]
   fundAllocations FundAllocation[]
+  categories      Category[]
 }
 
 model GroupMember {
@@ -96,6 +97,9 @@ model Expense {
   createdById String
 
   splits ExpenseSplit[]
+
+  categoryRel Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  categoryId  String?
 }
 
 enum SplitType {
@@ -170,3 +174,19 @@ model FundAllocation {
   toUser     User   @relation("FundAllocationTo", fields: [toUserId], references: [id])
   toUserId   String
 }
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  icon      String     @default("📦")
+  parentId  String?
+  parent    Category?  @relation("CategoryToCategory", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Category[] @relation("CategoryToCategory")
+  
+  group     Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId   String
+  
+  expenses  Expense[]
+  createdAt DateTime   @default(now())
+}
+

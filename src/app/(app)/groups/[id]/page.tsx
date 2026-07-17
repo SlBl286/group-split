@@ -63,6 +63,7 @@ export default async function GroupDetailPage({
           paidBy: true,
           createdBy: true,
           splits: { include: { user: true } },
+          categoryRel: true,
         },
         orderBy: { createdAt: "desc" },
       },
@@ -240,7 +241,8 @@ export default async function GroupDetailPage({
               splitType: e.splitType,
               status: e.status,
               date: e.date.toISOString(),
-              category: e.category,
+              category: e.categoryRel ? e.categoryRel.name : e.category,
+              categoryIcon: e.categoryRel ? e.categoryRel.icon : undefined,
               paidBy: {
                 displayName: e.paidBy.displayName,
               },

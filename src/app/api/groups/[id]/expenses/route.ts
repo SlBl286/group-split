@@ -20,7 +20,7 @@ export async function POST(
   });
   if (!membership) return NextResponse.json({ error: "Không thuộc nhóm này" }, { status: 403 });
 
-  const { title, description, amount, paidById, splitType, date, splits, category } =
+  const { title, description, amount, paidById, splitType, date, splits, category, categoryId } =
     await req.json();
 
   if (!title || !amount || !paidById || !splits?.length) {
@@ -40,6 +40,7 @@ export async function POST(
         createdById: userId,
         status: membership.role === "OWNER" ? "APPROVED" : "PENDING",
         category: category || "Khác",
+        categoryId: categoryId || null,
         splits: {
           create: splits.map((s: { userId: string; amount: number }) => ({
             userId: s.userId,

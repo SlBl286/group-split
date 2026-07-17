@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Plus, Users, ArrowRight, Crown } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getInitials } from "@/lib/utils/format";
 
 export const metadata = {
   title: "Nhóm của tôi - GroupSplit",
@@ -74,9 +76,14 @@ export default async function GroupsPage() {
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shrink-0 text-primary-foreground font-bold">
-                          {group.name[0].toUpperCase()}
-                        </div>
+                        <Avatar className="h-10 w-10 border shadow-sm rounded-xl shrink-0">
+                          {group.avatar && (
+                            <AvatarImage src={group.avatar} alt={group.name} className="object-cover rounded-xl" />
+                          )}
+                          <AvatarFallback className="bg-primary/10 text-primary text-sm font-bold rounded-xl">
+                            {getInitials(group.name)}
+                          </AvatarFallback>
+                        </Avatar>
                         <div className="min-w-0">
                           <CardTitle className="text-base truncate">
                             {group.name}
@@ -91,7 +98,7 @@ export default async function GroupsPage() {
                       {isOwner && (
                         <Badge variant="secondary" className="shrink-0 gap-1 text-xs">
                           <Crown className="h-3 w-3" />
-                          Owner
+                          Trưởng nhóm
                         </Badge>
                       )}
                     </div>

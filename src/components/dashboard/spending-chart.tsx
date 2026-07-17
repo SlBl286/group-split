@@ -12,32 +12,32 @@ import {
 import { formatVND } from "@/lib/utils/format";
 
 interface SpendingChartProps {
-  data: { month: string; amount: number }[];
+  data: { label: string; amount: number }[];
 }
 
 export function SpendingChart({ data }: SpendingChartProps) {
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
-        Chưa có dữ liệu chi tiêu
+      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+        Chưa có dữ liệu chi tiêu trong khoảng thời gian này
       </div>
     );
   }
 
   return (
-    <div className="h-48">
+    <div className="h-56">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+        <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
               <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+          <CartesianGrid strokeDasharray="3 3" className="stroke-border opacity-55" />
           <XAxis
-            dataKey="month"
-            tick={{ fontSize: 11 }}
+            dataKey="label"
+            tick={{ fontSize: 10 }}
             tickLine={false}
             axisLine={false}
             className="fill-muted-foreground"

@@ -1,34 +1,221 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { formatVND } from "@/lib/utils/format";
-import { calculateDebts } from "@/lib/debt-calculator";
+import { formatVND, formatDate } from "@/lib/utils/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getInitials } from "@/lib/utils/format";
-import Link from "next/link";
+import { Progress, ProgressTrack, ProgressIndicator } from "@/components/ui/progress";
 import {
   TrendingUp,
-  TrendingDown,
-  Users,
   Receipt,
-  ArrowRight,
-  Plus,
   Wallet,
+  Layers,
+  Inbox,
+  Users,
+  ArrowRight,
 } from "lucide-react";
+import Link from "next/link";
+import { calculateDebts } from "@/lib/debt-calculator";
+import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
+import { SpendingDonutChart } from "@/components/dashboard/spending-donut-chart";
 import { SpendingChart } from "@/components/dashboard/spending-chart";
+import { startOfMonth, endOfMonth, format, addDays, addMonths } from "date-fns";
 
 export const metadata = {
-  title: "Dashboard - GroupSplit",
+  title: "Quản lý Chi tiêu Cá nhân - GroupSplit",
 };
 
-export default async function DashboardPage() {
+interface SearchParams {
+  from?: string;
+  to?: string;
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const session = await auth();
   const userId = session!.user.id!;
 
-  // Fetch user's groups
-  const memberships = await prisma.groupMember.findMany({
+  const resolvedParams = await searchParams;
+  const fromStr = resolvedParams.from;
+  const toStr = resolvedParams.to;
+
+  // Xác định khoảng ngày: Mặc định là tháng hiện tại
+  let startDate: Date;
+  let endDate: Date;
+
+  const today = new Date();
+  if (fromStr) {
+    startDate = new Date(fromStr);
+    startDate.setHours(0, 0, 0, 0);
+  } else {
+    startDate = startOfMonth(today);
+    startDate.setHours(0, 0, 0, 0);
+  }
+
+  if (toStr) {
+    endDate = new Date(toStr);
+    endDate.setHours(23, 59, 59, 999);
+  } else {
+    endDate = endOfMonth(today);
+    endDate.setHours(23, 59, 59, 999);
+  }
+
+  const formattedFrom = format(startDate, "yyyy-MM-dd");
+  const formattedTo = format(endDate, "yyyy-MM-dd");
+
+  // Truy vấn danh sách hoá đơn trong khoảng thời gian đã được duyệt (APPROVED) và người dùng có phần chia (split)
+  const expenses = await prisma.expense.findMany({
+    where: {
+      status: "APPROVED",
+      date: {
+        gte: startDate,
+        lte: endDate,
+      },
+      splits: {
+        some: {
+          userId,
+        },
+      },
+    },
+    include: {
+      group: true,
+      categoryRel: true,
+      paidBy: true,
+      splits: {
+        where: {
+          userId,
+        },
+      },
+    },
+    orderBy: {
+      date: "desc",
+    },
+  });
+
+  // 1. Tính toán các chỉ số cơ bản (Key Metrics)
+  const totalSpending = expenses.reduce((sum, exp) => {
+    const myShare = exp.splits[0]?.amount ?? 0;
+    return sum + myShare;
+  }, 0);
+
+  const transactionCount = expenses.length;
+
+  const daysDiff = Math.max(
+    1,
+    Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+  );
+  const dailyAverage = totalSpending / daysDiff;
+
+  // 2. Thống kê theo Danh mục
+  const categoryMap = new Map<string, { name: string; icon: string; amount: number }>();
+  for (const expense of expenses) {
+    const catId = expense.categoryId ?? expense.category ?? "Khác";
+    const catName = expense.categoryRel?.name ?? expense.category ?? "Khác";
+    const catIcon = expense.categoryRel?.icon ?? "📦";
+    const myShare = expense.splits[0]?.amount ?? 0;
+
+    const existing = categoryMap.get(catId) ?? {
+      name: catName,
+      icon: catIcon,
+      amount: 0,
+    };
+    existing.amount += myShare;
+    categoryMap.set(catId, existing);
+  }
+
+  const spendingByCategory = Array.from(categoryMap.entries())
+    .map(([id, data]) => ({
+      id,
+      name: data.name,
+      icon: data.icon,
+      amount: data.amount,
+      percentage: totalSpending > 0 ? (data.amount / totalSpending) * 100 : 0,
+    }))
+    .sort((a, b) => b.amount - a.amount);
+
+  // 3. Thống kê theo Nhóm
+  const groupMap = new Map<string, { name: string; amount: number }>();
+  for (const expense of expenses) {
+    const groupId = expense.groupId;
+    const groupName = expense.group.name;
+    const myShare = expense.splits[0]?.amount ?? 0;
+
+    const existing = groupMap.get(groupId) ?? {
+      name: groupName,
+      amount: 0,
+    };
+    existing.amount += myShare;
+    groupMap.set(groupId, existing);
+  }
+
+  const spendingByGroup = Array.from(groupMap.entries())
+    .map(([id, data]) => ({
+      id,
+      name: data.name,
+      amount: data.amount,
+      percentage: totalSpending > 0 ? (data.amount / totalSpending) * 100 : 0,
+    }))
+    .sort((a, b) => b.amount - a.amount);
+
+  // 4. Thống kê theo Thời gian (Dữ liệu biểu đồ)
+  const isMonthly = daysDiff > 31;
+  const timeMap = new Map<string, number>();
+
+  if (isMonthly) {
+    // Gom nhóm theo tháng: "MM/yyyy"
+    let current = new Date(startDate);
+    while (current <= endDate) {
+      const key = current.toLocaleDateString("vi-VN", {
+        month: "2-digit",
+        year: "numeric",
+      });
+      timeMap.set(key, 0);
+      current = addMonths(current, 1);
+    }
+
+    for (const expense of expenses) {
+      const key = new Date(expense.date).toLocaleDateString("vi-VN", {
+        month: "2-digit",
+        year: "numeric",
+      });
+      if (timeMap.has(key)) {
+        const myShare = expense.splits[0]?.amount ?? 0;
+        timeMap.set(key, (timeMap.get(key) ?? 0) + myShare);
+      }
+    }
+  } else {
+    // Gom nhóm theo ngày: "dd/MM"
+    let current = new Date(startDate);
+    while (current <= endDate) {
+      const key = current.toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+      });
+      timeMap.set(key, 0);
+      current = addDays(current, 1);
+    }
+
+    for (const expense of expenses) {
+      const key = new Date(expense.date).toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+      });
+      if (timeMap.has(key)) {
+        const myShare = expense.splits[0]?.amount ?? 0;
+        timeMap.set(key, (timeMap.get(key) ?? 0) + myShare);
+      }
+    }
+  }
+
+  const chartData = Array.from(timeMap.entries()).map(([label, amount]) => ({
+    label,
+    amount,
+  }));
+
+  // 5. Tính số tiền đang nợ hoặc cần được thanh toán theo nhóm (Lũy kế toàn thời gian)
+  const allMemberships = await prisma.groupMember.findMany({
     where: { userId },
     include: {
       group: {
@@ -44,243 +231,280 @@ export default async function DashboardPage() {
     },
   });
 
-  // Calculate overall balance across all groups
-  let totalOwed = 0; // tôi nợ người khác
-  let totalOwing = 0; // người khác nợ tôi
-  const allDebts: Array<{
-    fromUserId: string;
-    fromUserName: string;
-    toUserId: string;
-    toUserName: string;
-    amount: number;
+  const groupBalances: Array<{
+    groupId: string;
     groupName: string;
-    targetAvatar: string | null;
+    balance: number;
   }> = [];
 
-  for (const membership of memberships) {
+  for (const membership of allMemberships) {
     const { group } = membership;
-    const { debts } = calculateDebts(
+    const { balances } = calculateDebts(
       group.expenses,
       group.members,
       group.settlements,
       group.ownerId
     );
 
-    for (const debt of debts) {
-      const targetUserId = debt.fromUserId === userId ? debt.toUserId : debt.fromUserId;
-      const targetMember = group.members.find((m) => m.userId === targetUserId);
-      const targetAvatar = targetMember?.user.avatar ?? null;
-
-      if (debt.fromUserId === userId) {
-        totalOwed += debt.amount;
-        allDebts.push({ ...debt, groupName: group.name, targetAvatar });
-      } else if (debt.toUserId === userId) {
-        totalOwing += debt.amount;
-        allDebts.push({ ...debt, groupName: group.name, targetAvatar });
-      }
-    }
-  }
-
-  // Monthly spending data for chart
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-  const recentExpenses = await prisma.expense.findMany({
-    where: {
-      status: "APPROVED",
-      date: { gte: sixMonthsAgo },
-      group: { members: { some: { userId } } },
-    },
-    include: { splits: { where: { userId } } },
-    orderBy: { date: "asc" },
-  });
-
-  // Group expenses by month
-  const monthlyMap = new Map<string, number>();
-  for (const expense of recentExpenses) {
-    const key = new Date(expense.date).toLocaleDateString("vi-VN", {
-      month: "short",
-      year: "2-digit",
+    const myBalance = balances.find((b) => b.userId === userId)?.balance ?? 0;
+    groupBalances.push({
+      groupId: group.id,
+      groupName: group.name,
+      balance: myBalance,
     });
-    const myShare = expense.splits[0]?.amount ?? 0;
-    monthlyMap.set(key, (monthlyMap.get(key) ?? 0) + myShare);
   }
-
-  const chartData = Array.from(monthlyMap.entries()).map(([month, amount]) => ({
-    month,
-    amount,
-  }));
-
-  const netBalance = totalOwing - totalOwed;
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+      {/* Tiêu đề trang */}
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-bold tracking-tight">Quản lý chi tiêu cá nhân</h1>
         <p className="text-muted-foreground text-sm">
-          Xin chào, <span className="font-medium text-foreground">{session!.user.name}</span>!
+          Xin chào, <span className="font-medium text-foreground">{session!.user.name}</span>! Dưới đây là phân tích chi tiêu cá nhân của bạn.
         </p>
       </div>
 
-      {/* Balance cards */}
+      {/* Bộ lọc thời gian */}
+      <DashboardFilters from={formattedFrom} to={formattedTo} />
+
+      {/* Hàng thẻ thông tin chỉ số */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="border-0 shadow-sm bg-gradient-to-br from-primary/10 to-primary/5">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm text-muted-foreground">Tổng chi tiêu cá nhân</p>
+              <Wallet className="h-4 w-4 text-primary" />
+            </div>
+            <p className="text-2xl font-bold text-primary">
+              {formatVND(totalSpending)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">Phần chi của bạn trong khoảng thời gian này</p>
+          </CardContent>
+        </Card>
+
         <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-500/10 to-emerald-500/5">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm text-muted-foreground">Được nhận</p>
+              <p className="text-sm text-muted-foreground">Trung bình hàng ngày</p>
               <TrendingUp className="h-4 w-4 text-emerald-500" />
             </div>
             <p className="text-2xl font-bold text-emerald-500">
-              {formatVND(totalOwing)}
+              {formatVND(dailyAverage)}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Người khác nợ bạn</p>
+            <p className="text-xs text-muted-foreground mt-1">Tính cho {daysDiff} ngày được lọc</p>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-rose-500/10 to-rose-500/5">
+        <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-500/10 to-blue-500/5">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm text-muted-foreground">Phải trả</p>
-              <TrendingDown className="h-4 w-4 text-rose-500" />
+              <p className="text-sm text-muted-foreground">Số lượng giao dịch</p>
+              <Receipt className="h-4 w-4 text-blue-500" />
             </div>
-            <p className="text-2xl font-bold text-rose-500">
-              {formatVND(totalOwed)}
+            <p className="text-2xl font-bold text-blue-500">
+              {transactionCount}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Bạn nợ người khác</p>
-          </CardContent>
-        </Card>
-
-        <Card className={`border-0 shadow-sm bg-gradient-to-br ${netBalance >= 0 ? "from-blue-500/10 to-blue-500/5" : "from-orange-500/10 to-orange-500/5"}`}>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm text-muted-foreground">Số dư ròng</p>
-              <Wallet className={`h-4 w-4 ${netBalance >= 0 ? "text-blue-500" : "text-orange-500"}`} />
-            </div>
-            <p className={`text-2xl font-bold ${netBalance >= 0 ? "text-blue-500" : "text-orange-500"}`}>
-              {netBalance >= 0 ? "+" : ""}{formatVND(netBalance)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {netBalance >= 0 ? "Bạn đang được lợi" : "Bạn đang nợ tổng cộng"}
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Hóa đơn cá nhân đã tham gia chi tiêu</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Spending chart */}
-        <Card>
+      {/* Lưới biểu đồ chính */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Biểu đồ xu hướng */}
+        <Card className="lg:col-span-3">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Chi tiêu 6 tháng gần đây</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              Xu hướng chi tiêu
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <SpendingChart data={chartData} />
           </CardContent>
         </Card>
 
-        {/* My debts summary */}
-        <Card>
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Dư nợ của tôi</CardTitle>
-            {allDebts.length > 3 && (
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/groups">Xem tất cả</Link>
-              </Button>
-            )}
+        {/* Cơ cấu theo danh mục */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Layers className="h-4 w-4 text-muted-foreground" />
+              Chi tiêu theo danh mục
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {allDebts.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Receipt className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">Không có dư nợ nào 🎉</p>
+          <CardContent className="pt-2">
+            <SpendingDonutChart data={spendingByCategory} />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Lưới chi tiết giao dịch và chi tiêu theo nhóm */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Tiến trình theo Nhóm */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              Chi tiêu theo nhóm
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {spendingByGroup.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground text-sm">
+                Không có dữ liệu chi tiêu theo nhóm
               </div>
             ) : (
-              allDebts.slice(0, 4).map((debt, i) => (
-                <div
-                  key={i}
-                  className={`flex items-center gap-3 p-3 rounded-xl ${
-                    debt.fromUserId === userId
-                      ? "bg-rose-500/5 border border-rose-500/20"
-                      : "bg-emerald-500/5 border border-emerald-500/20"
-                  }`}
-                >
-                  <Avatar className="h-8 w-8 shrink-0">
-                    {debt.targetAvatar && (
-                      <AvatarImage src={debt.targetAvatar} alt="Avatar" className="object-cover" />
-                    )}
-                    <AvatarFallback className="text-xs">
-                      {getInitials(
-                        debt.fromUserId === userId
-                          ? debt.toUserName
-                          : debt.fromUserName
-                      )}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {debt.fromUserId === userId ? (
-                        <>Bạn → {debt.toUserName}</>
-                      ) : (
-                        <>{debt.fromUserName} → Bạn</>
-                      )}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {debt.groupName}
-                    </p>
+              spendingByGroup.map((item) => (
+                <div key={item.id} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium truncate max-w-[150px]">{item.name}</span>
+                    <span className="font-semibold text-muted-foreground">
+                      {formatVND(item.amount)} ({item.percentage.toFixed(0)}%)
+                    </span>
                   </div>
-                  <Badge
-                    variant={debt.fromUserId === userId ? "destructive" : "default"}
-                    className="shrink-0 text-xs"
-                  >
-                    {formatVND(debt.amount)}
-                  </Badge>
+                  <Progress value={item.percentage} className="h-2">
+                    <ProgressTrack>
+                      <ProgressIndicator className="bg-primary rounded-full animate-pulse-once" />
+                    </ProgressTrack>
+                  </Progress>
                 </div>
               ))
             )}
           </CardContent>
         </Card>
+
+        {/* Lịch sử giao dịch chi tiết */}
+        <Card className="lg:col-span-3">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Receipt className="h-4 w-4 text-muted-foreground" />
+              Lịch sử chi tiêu chi tiết
+            </CardTitle>
+            <Badge variant="outline" className="text-xs font-normal">
+              {expenses.length} giao dịch
+            </Badge>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {expenses.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Inbox className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">Không có giao dịch nào trong khoảng thời gian này 🎉</p>
+              </div>
+            ) : (
+              <div className="max-h-[350px] overflow-y-auto pr-1 space-y-3 scrollbar-thin">
+                {expenses.map((exp) => {
+                  const myShare = exp.splits[0]?.amount ?? 0;
+                  const catIcon = exp.categoryRel?.icon ?? "📦";
+                  const catName = exp.categoryRel?.name ?? exp.category ?? "Khác";
+                  const isPaidByMe = exp.paidById === userId;
+
+                  return (
+                    <div
+                      key={exp.id}
+                      className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-accent/40 transition-colors"
+                    >
+                      {/* Icon */}
+                      <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center text-lg shrink-0">
+                        {catIcon}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium truncate">{exp.title}</p>
+                          <span className="text-xs text-muted-foreground shrink-0 font-mono">
+                            {formatDate(exp.date)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                          <span className="truncate max-w-[120px] font-medium text-foreground/70">
+                            {exp.group.name}
+                          </span>
+                          <span>•</span>
+                          <span className="truncate">{catName}</span>
+                          <span>•</span>
+                          <span>
+                            {isPaidByMe ? (
+                              <span className="text-emerald-500 font-medium">Bạn trả trước</span>
+                            ) : (
+                              <span>{exp.paidBy.displayName} trả trước</span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Amounts */}
+                      <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
+                        <Badge variant="default" className="text-xs">
+                          {formatVND(myShare)}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground">
+                          Tổng: {formatVND(exp.amount)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Groups overview */}
+      {/* Số dư nợ/Cần thanh toán theo nhóm */}
       <Card>
-        <CardHeader className="pb-2 flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Nhóm của tôi</CardTitle>
-          <Button size="sm" asChild>
-            <Link href="/groups/new" className="gap-1">
-              <Plus className="h-4 w-4" />
-              Tạo nhóm
-            </Link>
-          </Button>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            Số dư nợ hoặc Cần thanh toán theo nhóm
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {memberships.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Users className="h-10 w-10 mx-auto mb-2 opacity-30" />
-              <p className="text-sm mb-3">Bạn chưa tham gia nhóm nào</p>
-              <Button asChild size="sm">
-                <Link href="/groups/new">Tạo nhóm đầu tiên</Link>
-              </Button>
+          {groupBalances.length === 0 ? (
+            <div className="text-center py-6 text-muted-foreground text-sm">
+              Bạn chưa tham gia nhóm nào
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {memberships.map(({ group }) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {groupBalances.map((item) => (
                 <Link
-                  key={group.id}
-                  href={`/groups/${group.id}`}
-                  className="flex items-center gap-3 p-4 rounded-xl border hover:bg-accent transition-colors group"
+                  key={item.groupId}
+                  href={`/groups/${item.groupId}`}
+                  className="flex items-center justify-between p-4 rounded-xl border bg-card hover:bg-accent/40 transition-colors group"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                    <span className="text-sm font-bold text-primary">
-                      {group.name[0].toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{group.name}</p>
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+                      {item.groupName}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      {group.members.length} thành viên
+                      {item.balance > 0.01 ? (
+                        <span className="text-emerald-500 font-medium">Bạn được nhận</span>
+                      ) : item.balance < -0.01 ? (
+                        <span className="text-rose-500 font-medium">Bạn cần trả</span>
+                      ) : (
+                        <span>Đã thanh toán xong</span>
+                      )}
                     </p>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge
+                      variant={
+                        item.balance > 0.01
+                          ? "default"
+                          : item.balance < -0.01
+                          ? "destructive"
+                          : "secondary"
+                      }
+                      className="text-xs"
+                    >
+                      {item.balance > 0.01
+                        ? `+${formatVND(item.balance)}`
+                        : item.balance < -0.01
+                        ? formatVND(item.balance)
+                        : "0đ"}
+                    </Badge>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  </div>
                 </Link>
               ))}
             </div>

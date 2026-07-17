@@ -96,7 +96,13 @@ export async function POST(
           // Cập nhật Settlement thành đã xác nhận
           await prisma.settlement.update({
             where: { id: settlementId },
-            data: { isConfirmed: true },
+            data: {
+              isConfirmed: true,
+              // Xóa tiền tố [QR_PENDING] nếu còn
+              note: settlement.note?.startsWith("[QR_PENDING]")
+                ? settlement.note.replace(/^\[QR_PENDING\]\s*/, "")
+                : settlement.note,
+            },
           });
 
           // Phát sóng tin nhắn cập nhật cho tất cả client

@@ -459,7 +459,7 @@ export function SettlementSection({
                               {formatVND(s.amount)}
                             </span>
                           </p>
-                          {s.note && <p className="text-[10px] text-muted-foreground mt-0.5">{s.note}</p>}
+                          {s.note && <p className="text-[10px] text-muted-foreground mt-0.5">{s.note.replace(/^\[QR_PENDING\]\s*/, "")}</p>}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 sm:shrink-0">
