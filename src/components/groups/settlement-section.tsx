@@ -365,7 +365,7 @@ export function SettlementSection({
                           {fromAvatar && (
                             <AvatarImage src={fromAvatar} alt={debt.fromUserName} className="object-cover" />
                           )}
-                          <AvatarFallback className="text-xs">
+                          <AvatarFallback className={`text-xs ${debt.fromUserId === currentUserId ? "bg-blue-500/20 text-blue-600 dark:text-blue-400" : ""}`}>
                             {getInitials(debt.fromUserName)}
                           </AvatarFallback>
                         </Avatar>
@@ -374,13 +374,19 @@ export function SettlementSection({
                           {toAvatar && (
                             <AvatarImage src={toAvatar} alt={debt.toUserName} className="object-cover" />
                           )}
-                          <AvatarFallback className="text-xs">
+                          <AvatarFallback className={`text-xs ${debt.toUserId === currentUserId ? "bg-blue-500/20 text-blue-600 dark:text-blue-400" : ""}`}>
                             {getInitials(debt.toUserName)}
                           </AvatarFallback>
                         </Avatar>
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">
-                        {debt.fromUserName} → {debt.toUserName}
+                        <span className={debt.fromUserId === currentUserId ? "text-blue-600 dark:text-blue-400 font-bold" : ""}>
+                          {debt.fromUserId === currentUserId ? "Bạn" : debt.fromUserName}
+                        </span>
+                        {" → "}
+                        <span className={debt.toUserId === currentUserId ? "text-blue-600 dark:text-blue-400 font-bold" : ""}>
+                          {debt.toUserId === currentUserId ? "Bạn" : debt.toUserName}
+                        </span>
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Cần thanh toán
@@ -442,9 +448,13 @@ export function SettlementSection({
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm">
-                            <span className="font-semibold">{s.fromUserName}</span>
+                            <span className={`font-semibold ${s.fromUserId === currentUserId ? "text-blue-600 dark:text-blue-400" : ""}`}>
+                              {s.fromUserId === currentUserId ? "Bạn" : s.fromUserName}
+                            </span>
                             {" → "}
-                            <span className="font-semibold">{s.toUserName}</span>
+                            <span className={`font-semibold ${s.toUserId === currentUserId ? "text-blue-600 dark:text-blue-400" : ""}`}>
+                              {s.toUserId === currentUserId ? "Bạn" : s.toUserName}
+                            </span>
                             <span className="text-muted-foreground ml-2 font-mono">
                               {formatVND(s.amount)}
                             </span>

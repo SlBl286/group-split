@@ -37,6 +37,8 @@ interface ExpensesListProps {
   expenses: Expense[];
   isOwner: boolean;
   groupId: string;
+  currentUserId: string;
+  currentUserName: string;
 }
 
 const categoryEmojis: Record<string, string> = {
@@ -60,7 +62,7 @@ const statusLabel = {
   REJECTED: "Từ chối",
 };
 
-export function ExpensesList({ expenses, isOwner, groupId }: ExpensesListProps) {
+export function ExpensesList({ expenses, isOwner, groupId, currentUserId, currentUserName }: ExpensesListProps) {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -175,25 +177,38 @@ export function ExpensesList({ expenses, isOwner, groupId }: ExpensesListProps) 
                         </div>
                         <p className="text-xs text-muted-foreground">
                           Người trả:{" "}
-                          <span className="font-medium text-foreground">
-                            {expense.paidBy.displayName}
+                          <span className={`font-semibold ${
+                            expense.paidBy.displayName === currentUserName
+                              ? "text-blue-600 dark:text-blue-400"
+                              : "text-foreground"
+                          }`}>
+                            {expense.paidBy.displayName === currentUserName
+                              ? "Bạn"
+                              : expense.paidBy.displayName}
                           </span>{" "}
                           • {formatDate(expense.date)}
                         </p>
                         <div className="mt-2 flex flex-wrap gap-1">
-                          {expense.splits.map((split) => (
-                            <span
-                              key={split.id}
-                              className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full ${
-                                split.isPaid
-                                  ? "bg-emerald-500/10 text-emerald-600"
-                                  : "bg-muted text-muted-foreground"
-                              }`}
-                            >
-                              {split.user.displayName}: {formatVND(split.amount)}
-                              {split.isPaid && " ✓"}
-                            </span>
-                          ))}
+                          {expense.splits.map((split) => {
+                            const isCurrentUser = split.user.displayName === currentUserName;
+                            return (
+                              <span
+                                key={split.id}
+                                className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium ${
+                                  isCurrentUser
+                                    ? split.isPaid
+                                      ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/30"
+                                      : "bg-blue-500/10 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/20"
+                                    : split.isPaid
+                                      ? "bg-emerald-500/10 text-emerald-600"
+                                      : "bg-muted text-muted-foreground"
+                                }`}
+                              >
+                                {isCurrentUser ? "Bạn" : split.user.displayName}: {formatVND(split.amount)}
+                                {split.isPaid && " ✓"}
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
                       <div className="text-right shrink-0">

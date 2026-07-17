@@ -255,6 +255,8 @@ export default async function GroupDetailPage({
             }))}
             isOwner={isOwner}
             groupId={id}
+            currentUserId={userId}
+            currentUserName={group.members.find((m) => m.userId === userId)?.user.displayName ?? ""}
           />
         </TabsContent>
 
