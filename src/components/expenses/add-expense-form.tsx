@@ -26,6 +26,15 @@ interface AddExpenseFormProps {
   currentUserId: string;
 }
 
+const CATEGORIES = [
+  { id: "Ăn uống", label: "Ăn uống", emoji: "🍽️" },
+  { id: "Di chuyển", label: "Di chuyển", emoji: "🚗" },
+  { id: "Mua sắm", label: "Mua sắm", emoji: "🛒" },
+  { id: "Giải trí", label: "Giải trí", emoji: "🎉" },
+  { id: "Sinh hoạt", label: "Sinh hoạt", emoji: "🏠" },
+  { id: "Khác", label: "Khác", emoji: "📦" },
+];
+
 export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -36,6 +45,7 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
   );
   const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
   const [paidById, setPaidById] = useState(currentUserId);
+  const [category, setCategory] = useState("Khác");
 
   const parsedAmount = parseFloat(amount) || 0;
 
@@ -108,6 +118,7 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
         splitType,
         date: date || new Date().toISOString(),
         splits,
+        category,
       }),
     });
 
@@ -136,6 +147,28 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
               required
               className="h-11"
             />
+          </div>
+
+          {/* Category */}
+          <div className="space-y-2">
+            <Label>Danh mục chi tiêu</Label>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setCategory(cat.id)}
+                  className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs font-medium transition-all ${
+                    category === cat.id
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:bg-accent text-muted-foreground"
+                  }`}
+                >
+                  <span className="text-xl mb-1">{cat.emoji}</span>
+                  <span className="truncate w-full text-center">{cat.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Amount */}
@@ -288,18 +321,16 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
                         ) : (
                           <div className="relative">
                             <Input
-                              type="number"
-                              min="0"
-                              step="1000"
-                              placeholder="0"
-                              value={customSplits[m.userId] || ""}
-                              onChange={(e) =>
+                              value={customSplits[m.userId] ? parseInt(customSplits[m.userId]).toLocaleString("vi-VN") : ""}
+                              onChange={(e) => {
+                                const raw = e.target.value.replace(/[^0-9]/g, "");
                                 setCustomSplits((prev) => ({
                                   ...prev,
-                                  [m.userId]: e.target.value,
-                                }))
-                              }
-                              className="w-28 h-8 text-right text-xs font-mono pr-8"
+                                  [m.userId]: raw,
+                                }));
+                              }}
+                              placeholder="0"
+                              className="w-32 h-8 text-right text-xs font-mono pr-8"
                             />
                             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
                               đ

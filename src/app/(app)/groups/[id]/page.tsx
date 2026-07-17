@@ -98,6 +98,15 @@ export default async function GroupDetailPage({
     REJECTED: "Từ chối",
   };
 
+  const categoryEmojis: Record<string, string> = {
+    "Ăn uống": "🍽️",
+    "Di chuyển": "🚗",
+    "Mua sắm": "🛒",
+    "Giải trí": "🎉",
+    "Sinh hoạt": "🏠",
+    "Khác": "📦",
+  };
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <GroupRealtimeListener groupId={id} />
@@ -202,6 +211,9 @@ export default async function GroupDetailPage({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <h3 className="font-medium text-sm">{expense.title}</h3>
+                        <Badge variant="secondary" className="text-[11px] font-medium py-0 px-2 h-5">
+                          {categoryEmojis[expense.category] || "📦"} {expense.category}
+                        </Badge>
                         <div className="flex items-center gap-1">
                           {statusIcon[expense.status as keyof typeof statusIcon]}
                           <span className="text-xs text-muted-foreground">
@@ -282,6 +294,18 @@ export default async function GroupDetailPage({
               isConfirmed: s.isConfirmed,
               createdAt: s.createdAt.toISOString(),
               note: s.note,
+            }))}
+            expenses={approvedExpenses.map(e => ({
+              id: e.id,
+              title: e.title,
+              amount: e.amount,
+              paidById: e.paidById,
+              date: e.date.toISOString(),
+              splits: e.splits.map(s => ({
+                userId: s.userId,
+                amount: s.amount,
+              })),
+              category: e.category,
             }))}
           />
         </TabsContent>

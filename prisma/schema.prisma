@@ -76,6 +76,7 @@ model Expense {
   status      ExpenseStatus @default(PENDING)
   date        DateTime      @default(now())
   createdAt   DateTime      @default(now())
+  category    String        @default("Khác")
 
   group   Group  @relation(fields: [groupId], references: [id])
   groupId String

@@ -14,6 +14,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import { toast } from "sonner";
 import { formatVND, formatDate, getInitials } from "@/lib/utils/format";
 import { ArrowRight, CheckCircle2, Clock, Loader2, QrCode, Copy, Check, Banknote, HelpCircle } from "lucide-react";
@@ -56,6 +73,108 @@ interface SettlementSectionProps {
   };
   members: Member[];
   settlements: Settlement[];
+  expenses: Array<{
+    id: string;
+    title: string;
+    amount: number;
+    paidById: string;
+    date: string;
+    splits: Array<{
+      userId: string;
+      amount: number;
+    }>;
+    category: string;
+  }>;
+}
+
+const LINE_COLORS = [
+  "#10b981", // emerald
+  "#3b82f6", // blue
+  "#f43f5e", // rose
+  "#eab308", // yellow
+  "#a855f7", // purple
+  "#f97316", // orange
+  "#06b6d4", // cyan
+  "#ec4899", // pink
+];
+
+function getHistoricalBalances(
+  members: Member[],
+  expenses: any[],
+  settlements: Settlement[]
+) {
+  const changesByDate: Record<string, Record<string, number>> = {};
+
+  const addChange = (dateStr: string, userId: string, amount: number) => {
+    if (!changesByDate[dateStr]) {
+      changesByDate[dateStr] = {};
+    }
+    changesByDate[dateStr][userId] = (changesByDate[dateStr][userId] || 0) + amount;
+  };
+
+  for (const exp of expenses) {
+    const dateStr = exp.date.split("T")[0];
+    for (const split of exp.splits) {
+      if (split.userId === exp.paidById) continue;
+      addChange(dateStr, split.userId, -split.amount);
+      addChange(dateStr, exp.paidById, split.amount);
+    }
+  }
+
+  for (const s of settlements) {
+    if (!s.isConfirmed) continue;
+    const dateStr = s.createdAt.split("T")[0];
+    addChange(dateStr, s.fromUserId, s.amount);
+    addChange(dateStr, s.toUserId, -s.amount);
+  }
+
+  const dates = Object.keys(changesByDate).sort();
+  
+  const runningBalances: Record<string, number> = {};
+  for (const m of members) {
+    runningBalances[m.userId] = 0;
+  }
+
+  const historyData: any[] = [];
+
+  if (dates.length > 0) {
+    const firstDate = new Date(dates[0]);
+    const startDay = new Date(firstDate);
+    startDay.setDate(startDay.getDate() - 1);
+    const startDayStr = startDay.toISOString().split("T")[0];
+    
+    const initialPoint: any = { date: startDayStr };
+    for (const m of members) {
+      initialPoint[m.user.displayName] = 0;
+    }
+    historyData.push(initialPoint);
+
+    for (const dateStr of dates) {
+      const changes = changesByDate[dateStr];
+      for (const userId of Object.keys(runningBalances)) {
+        if (changes[userId]) {
+          runningBalances[userId] += changes[userId];
+        }
+      }
+
+      const dataPoint: any = { date: dateStr };
+      for (const m of members) {
+        dataPoint[m.user.displayName] = runningBalances[m.userId];
+      }
+      historyData.push(dataPoint);
+    }
+  }
+
+  const todayStr = new Date().toISOString().split("T")[0];
+  if (!changesByDate[todayStr] && dates.length > 0) {
+    const lastPoint: any = { date: todayStr };
+    for (const m of members) {
+      lastPoint[m.user.displayName] = runningBalances[m.userId];
+    }
+    historyData.push(lastPoint);
+  }
+
+  return historyData;
 }
 
 export function SettlementSection({
@@ -65,10 +184,49 @@ export function SettlementSection({
   owner,
   members,
   settlements,
+  expenses,
 }: SettlementSectionProps) {
   const router = useRouter();
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const [timeRange, setTimeRange] = useState<"all" | "7days" | "30days">("all");
+  const [selectedMemberId, setSelectedMemberId] = useState<string>("all");
+
+  const rawHistoryData = getHistoricalBalances(members, expenses, settlements);
+
+  const filteredHistoryData = rawHistoryData.filter((point) => {
+    if (timeRange === "all") return true;
+    const limitDate = new Date();
+    if (timeRange === "7days") {
+      limitDate.setDate(limitDate.getDate() - 7);
+    } else if (timeRange === "30days") {
+      limitDate.setDate(limitDate.getDate() - 30);
+    }
+    const limitDateStr = limitDate.toISOString().split("T")[0];
+    return point.date >= limitDateStr;
+  });
+
+  const filteredSettlements = settlements.filter((s) => {
+    if (selectedMemberId !== "all" && s.fromUserId !== selectedMemberId && s.toUserId !== selectedMemberId) {
+      return false;
+    }
+    if (timeRange !== "all") {
+      const limitDate = new Date();
+      if (timeRange === "7days") {
+        limitDate.setDate(limitDate.getDate() - 7);
+      } else if (timeRange === "30days") {
+        limitDate.setDate(limitDate.getDate() - 30);
+      }
+      const limitDateStr = limitDate.toISOString().split("T")[0];
+      return s.createdAt.split("T")[0] >= limitDateStr;
+    }
+    return true;
+  });
+
+  const selectedMemberName = selectedMemberId !== "all"
+    ? members.find((m) => m.userId === selectedMemberId)?.user.displayName
+    : null;
 
   // Đánh dấu không xóa Settlement khi đóng Dialog (nếu đã click Tôi đã chuyển xong hoặc đã thanh toán thành công)
   const keepSettlement = useRef(false);
@@ -282,7 +440,132 @@ export function SettlementSection({
   const transferContent = activePayment ? `GS${activePayment.id}` : "";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Bộ lọc hiển thị */}
+      <Card>
+        <CardContent className="pt-4 pb-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
+          <div className="text-left w-full sm:w-auto">
+            <h4 className="font-bold text-sm">Bộ lọc dữ liệu</h4>
+            <p className="text-[11px] text-muted-foreground">Lọc biểu đồ xu hướng dư nợ và lịch sử thanh toán</p>
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto shrink-0">
+            {/* Lọc theo thời gian */}
+            <div className="flex-1 sm:w-[150px]">
+              <Select value={timeRange} onValueChange={(val: any) => setTimeRange(val)}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Chọn khoảng thời gian" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">Tất cả thời gian</SelectItem>
+                  <SelectItem value="7days" className="text-xs">7 ngày qua</SelectItem>
+                  <SelectItem value="30days" className="text-xs">30 ngày qua</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Lọc theo thành viên */}
+            <div className="flex-1 sm:w-[180px]">
+              <Select value={selectedMemberId} onValueChange={(val) => setSelectedMemberId(val ?? "all")}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Chọn thành viên" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">Tất cả thành viên</SelectItem>
+                  {members.map((m) => (
+                    <SelectItem key={m.userId} value={m.userId} className="text-xs">
+                      {m.user.displayName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Biểu đồ xu hướng dư nợ nhóm theo ngày */}
+      {filteredHistoryData.length > 0 && (
+        <Card>
+          <CardContent className="pt-5 space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-sm">Xu hướng dư nợ nhóm theo ngày</h3>
+                <p className="text-[10px] text-muted-foreground">
+                  Số dư dương (+) = được nhận, âm (-) = phải trả
+                </p>
+              </div>
+            </div>
+            
+            <div className="h-60 w-full font-mono text-xs">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={filteredHistoryData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 10 }}
+                    tickFormatter={(date) => {
+                      const parts = date.split("-");
+                      return parts.length === 3 ? `${parts[2]}/${parts[1]}` : date;
+                    }}
+                    tickLine={false}
+                    axisLine={false}
+                    className="fill-muted-foreground"
+                  />
+                  <YAxis
+                    tick={{ fontSize: 9 }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v) =>
+                      v === 0 ? "0" : v >= 1000000 || v <= -1000000
+                        ? `${(v / 1000000).toFixed(1)}M`
+                        : v >= 1000 || v <= -1000
+                        ? `${(v / 1000).toFixed(0)}K`
+                        : v.toString()
+                    }
+                    className="fill-muted-foreground"
+                  />
+                  <Tooltip
+                    formatter={(value) => [formatVND(value as number), "Số dư"]}
+                    contentStyle={{
+                      background: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "0.5rem",
+                      fontSize: "11px",
+                    }}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
+                    iconType="circle"
+                  />
+                  {selectedMemberName ? (
+                    <Line
+                      type="monotone"
+                      dataKey={selectedMemberName}
+                      stroke={LINE_COLORS[0]}
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  ) : (
+                    members.map((m, idx) => (
+                      <Line
+                        key={m.userId}
+                        type="monotone"
+                        dataKey={m.user.displayName}
+                        stroke={LINE_COLORS[idx % LINE_COLORS.length]}
+                        strokeWidth={m.userId === currentUserId ? 3 : 1.8}
+                        dot={{ r: 3 }}
+                        activeDot={{ r: 5 }}
+                      />
+                    ))
+                  )}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Pending debts */}
       <Card>
         <CardContent className="pt-4 space-y-3">
@@ -374,11 +657,11 @@ export function SettlementSection({
       </Card>
 
       {/* Settlement history */}
-      {settlements.length > 0 && (
+      {filteredSettlements.length > 0 && (
         <Card>
           <CardContent className="pt-4 space-y-3">
             <h3 className="font-semibold text-sm">Lịch sử thanh toán</h3>
-            {settlements.map((s) => (
+            {filteredSettlements.map((s) => (
               <div
                 key={s.id}
                 className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg bg-muted/50 text-xs"
@@ -440,6 +723,14 @@ export function SettlementSection({
                 </div>
               </div>
             ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {settlements.length > 0 && filteredSettlements.length === 0 && (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground text-xs">
+            Không tìm thấy lịch sử thanh toán khớp với bộ lọc
           </CardContent>
         </Card>
       )}
