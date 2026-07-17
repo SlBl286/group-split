@@ -30,5 +30,5 @@ COPY --from=builder /app/prisma.config.ts ./
 # Đảm bảo thư mục upload tồn tại và cấp quyền đầy đủ
 RUN mkdir -p public/uploads
 
-# Chạy migrations trước khi start ứng dụng
-CMD ["sh", "-c", "bun prisma migrate deploy && bun run start"]
+# Resolve any failed migrations, then deploy and start
+CMD ["sh", "-c", "bun prisma migrate resolve --rolled-back 20260717000000_add_fund_allocation_and_avatars 2>/dev/null || true && bun prisma migrate deploy && bun run start"]
