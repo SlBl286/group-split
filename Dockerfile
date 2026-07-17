@@ -30,5 +30,10 @@ COPY --from=builder /app/prisma.config.ts ./
 # Đảm bảo thư mục upload tồn tại và cấp quyền đầy đủ
 RUN mkdir -p public/uploads
 
-# Resolve any failed migrations, then deploy and start
-CMD ["sh", "-c", "bun prisma migrate resolve --rolled-back 20260717000000_add_fund_allocation_and_avatars 2>/dev/null || true && bun prisma migrate deploy && bun run start"]
+# Baseline old migrations (mark as applied without running), resolve any failed new migration, then deploy
+CMD ["sh", "-c", "\
+  bun prisma migrate resolve --applied 20260715070747_init 2>/dev/null || true && \
+  bun prisma migrate resolve --applied 20260715080722_add_sepay_bank_info 2>/dev/null || true && \
+  bun prisma migrate resolve --rolled-back 20260717000000_add_fund_allocation_and_avatars 2>/dev/null || true && \
+  bun prisma migrate deploy && \
+  bun run start"]
