@@ -226,6 +226,7 @@ export default async function DashboardPage({
             include: { splits: true },
           },
           settlements: { where: { isConfirmed: true } },
+          fundAllocations: true,
         },
       },
     },
@@ -243,7 +244,8 @@ export default async function DashboardPage({
       group.expenses,
       group.members,
       group.settlements,
-      group.ownerId
+      group.ownerId,
+      group.fundAllocations
     );
 
     const myBalance = balances.find((b) => b.userId === userId)?.balance ?? 0;
