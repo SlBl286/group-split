@@ -9,15 +9,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { formatVND, getInitials } from "@/lib/utils/format";
 import { Loader2, Equal, Sliders, Check } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface Member {
   userId: string;
   displayName: string;
+  avatar?: string | null;
 }
 
 interface AddExpenseFormProps {
@@ -46,6 +48,7 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
   const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
   const [paidById, setPaidById] = useState(currentUserId);
   const [category, setCategory] = useState("Khác");
+  const [date, setDate] = useState<Date>(new Date());
 
   const parsedAmount = parseFloat(amount) || 0;
 
@@ -84,7 +87,7 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
     const formData = new FormData(e.currentTarget);
     const title = formData.get("title") as string;
     const description = formData.get("description") as string;
-    const date = formData.get("date") as string;
+    const dateStr = date.toISOString();
 
     // Build splits
     let splits: { userId: string; amount: number }[];
@@ -116,7 +119,7 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
         amount: parsedAmount,
         paidById,
         splitType,
-        date: date || new Date().toISOString(),
+        date: dateStr,
         splits,
         category,
       }),
@@ -198,14 +201,11 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
           </div>
 
           {/* Date */}
-          <div className="space-y-2">
-            <Label htmlFor="expense-date">Ngày</Label>
-            <Input
-              id="expense-date"
-              name="date"
-              type="date"
-              defaultValue={new Date().toISOString().split("T")[0]}
-              className="h-11"
+          <div className="space-y-2 flex flex-col">
+            <Label>Ngày</Label>
+            <DatePicker
+              value={date}
+              onChange={(newDate) => setDate(newDate || new Date())}
             />
           </div>
 
@@ -239,6 +239,9 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
                 }`}
               >
                 <Avatar className="h-6 w-6 shrink-0">
+                  {m.avatar && (
+                    <AvatarImage src={m.avatar} alt={m.displayName} className="object-cover" />
+                  )}
                   <AvatarFallback className="text-xs">
                     {getInitials(m.displayName)}
                   </AvatarFallback>
@@ -306,7 +309,10 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
                     >
                       {isSelected && <Check className="h-3 w-3" />}
                     </button>
-                    <Avatar className="h-7 w-7 shrink-0">
+                     <Avatar className="h-7 w-7 shrink-0">
+                      {m.avatar && (
+                        <AvatarImage src={m.avatar} alt={m.displayName} className="object-cover" />
+                      )}
                       <AvatarFallback className="text-xs">
                         {getInitials(m.displayName)}
                       </AvatarFallback>

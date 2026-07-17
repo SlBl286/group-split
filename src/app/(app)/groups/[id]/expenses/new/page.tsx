@@ -42,6 +42,7 @@ export default async function NewExpensePage({
         members={group.members.map((m) => ({
           userId: m.userId,
           displayName: m.user.displayName,
+          avatar: m.user.avatar,
         }))}
         currentUserId={userId}
       />

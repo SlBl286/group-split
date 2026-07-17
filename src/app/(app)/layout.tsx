@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { Sidebar, BottomNav } from "@/components/navigation";
+import { Sidebar, BottomNav, FloatingCreateGroupButton } from "@/components/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserMenu } from "@/components/user-menu";
 import { prisma } from "@/lib/prisma";
@@ -49,6 +49,9 @@ export default async function AppLayout({
 
       {/* Mobile bottom nav */}
       <BottomNav />
+
+      {/* Floating Action Button */}
+      <FloatingCreateGroupButton />
     </div>
   );
 }

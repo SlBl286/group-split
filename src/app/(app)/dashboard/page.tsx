@@ -5,7 +5,7 @@ import { calculateDebts } from "@/lib/debt-calculator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils/format";
 import Link from "next/link";
 import {
@@ -54,6 +54,7 @@ export default async function DashboardPage() {
     toUserName: string;
     amount: number;
     groupName: string;
+    targetAvatar: string | null;
   }> = [];
 
   for (const membership of memberships) {
@@ -66,12 +67,16 @@ export default async function DashboardPage() {
     );
 
     for (const debt of debts) {
+      const targetUserId = debt.fromUserId === userId ? debt.toUserId : debt.fromUserId;
+      const targetMember = group.members.find((m) => m.userId === targetUserId);
+      const targetAvatar = targetMember?.user.avatar ?? null;
+
       if (debt.fromUserId === userId) {
         totalOwed += debt.amount;
-        allDebts.push({ ...debt, groupName: group.name });
+        allDebts.push({ ...debt, groupName: group.name, targetAvatar });
       } else if (debt.toUserId === userId) {
         totalOwing += debt.amount;
-        allDebts.push({ ...debt, groupName: group.name });
+        allDebts.push({ ...debt, groupName: group.name, targetAvatar });
       }
     }
   }
@@ -200,6 +205,9 @@ export default async function DashboardPage() {
                   }`}
                 >
                   <Avatar className="h-8 w-8 shrink-0">
+                    {debt.targetAvatar && (
+                      <AvatarImage src={debt.targetAvatar} alt="Avatar" className="object-cover" />
+                    )}
                     <AvatarFallback className="text-xs">
                       {getInitials(
                         debt.fromUserId === userId

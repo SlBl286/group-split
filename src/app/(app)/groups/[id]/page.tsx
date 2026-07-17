@@ -9,7 +9,7 @@ import { GroupRealtimeListener } from "@/components/groups/group-realtime-listen
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
@@ -27,6 +27,13 @@ import { InviteSection } from "@/components/groups/invite-section";
 import { AddMemberForm } from "@/components/groups/add-member-form";
 import { ExpenseApproveButton } from "@/components/groups/expense-approve-button";
 import { SettlementSection } from "@/components/groups/settlement-section";
+import { DebtTrendChart } from "@/components/groups/debt-trend-chart";
+import { ExpensesList } from "@/components/groups/expenses-list";
+import { GroupBalanceSummary } from "@/components/groups/group-balance-summary";
+import { FundManagerSettings } from "@/components/groups/fund-manager-settings";
+import { FundAllocationTrigger } from "@/components/groups/fund-allocation-trigger";
+import { MemberQRAction } from "@/components/groups/member-qr-action";
+import { GroupSettingsForm } from "@/components/groups/group-settings-form";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -63,6 +70,10 @@ export default async function GroupDetailPage({
         include: { fromUser: true, toUser: true },
         orderBy: { createdAt: "desc" },
       },
+      fundAllocations: {
+        include: { fromUser: true, toUser: true },
+        orderBy: { date: "desc" },
+      },
     },
   });
 
@@ -72,6 +83,9 @@ export default async function GroupDetailPage({
   if (!isMember) redirect("/groups");
 
   const isOwner = group.ownerId === userId;
+  const isFundManager =
+    group.fundManagerId === userId ||
+    (group.fundManagerId === null && group.ownerId === userId);
   const approvedExpenses = group.expenses.filter((e) => e.status === "APPROVED");
   const pendingExpenses = group.expenses.filter((e) => e.status === "PENDING");
 
@@ -79,7 +93,8 @@ export default async function GroupDetailPage({
     approvedExpenses,
     group.members,
     group.settlements,
-    group.ownerId
+    group.ownerId,
+    group.fundAllocations
   );
 
   const myBalance = balances.find((b) => b.userId === userId);
@@ -112,59 +127,83 @@ export default async function GroupDetailPage({
       <GroupRealtimeListener groupId={id} />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold tracking-tight">{group.name}</h1>
-            {isOwner && (
-              <Badge variant="secondary" className="gap-1">
-                <Crown className="h-3 w-3" />
-                Owner
-              </Badge>
+        <div className="flex items-center gap-3">
+          <Avatar className="h-12 w-12 border shadow-sm shrink-0">
+            {group.avatar && (
+              <AvatarImage src={group.avatar} alt={group.name} className="object-cover" />
+            )}
+            <AvatarFallback className="bg-primary/10 text-primary text-base font-bold">
+              {getInitials(group.name)}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <h1 className="text-xl font-bold tracking-tight">{group.name}</h1>
+              {isOwner && (
+                <Badge variant="secondary" className="gap-1 h-5 text-[10px] px-1.5 font-bold">
+                  <Crown className="h-2.5 w-2.5" />
+                  Trưởng nhóm
+                </Badge>
+              )}
+            </div>
+            {group.description && (
+              <p className="text-muted-foreground text-xs">{group.description}</p>
             )}
           </div>
-          {group.description && (
-            <p className="text-muted-foreground text-sm">{group.description}</p>
-          )}
         </div>
-        <Button asChild className="gap-2 shrink-0">
-          <Link href={`/groups/${id}/expenses/new`}>
-            <Plus className="h-4 w-4" />
-            Thêm hoá đơn
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <FundAllocationTrigger
+            groupId={id}
+            isFundManager={isFundManager}
+            members={group.members.map((m) => ({
+              userId: m.userId,
+              user: {
+                id: m.user.id,
+                displayName: m.user.displayName,
+                avatar: m.user.avatar,
+              },
+            }))}
+          />
+          <Button asChild className="gap-2 shrink-0">
+            <Link href={`/groups/${id}/expenses/new`}>
+              <Plus className="h-4 w-4" />
+              Thêm hoá đơn
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Balance summary */}
       {myBalance && (
-        <Card className={`border-0 shadow-sm ${
-          myBalance.balance > 0
-            ? "bg-gradient-to-br from-emerald-500/10 to-emerald-500/5"
-            : myBalance.balance < 0
-            ? "bg-gradient-to-br from-rose-500/10 to-rose-500/5"
-            : "bg-gradient-to-br from-blue-500/10 to-blue-500/5"
-        }`}>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div>
-              <p className="text-sm text-muted-foreground">Số dư của bạn trong nhóm này</p>
-              <p className={`text-3xl font-bold mt-1 ${
-                myBalance.balance > 0
-                  ? "text-emerald-500"
-                  : myBalance.balance < 0
-                  ? "text-rose-500"
-                  : "text-blue-500"
-              }`}>
-                {myBalance.balance > 0 ? "+" : ""}{formatVND(myBalance.balance)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {myBalance.balance > 0
-                  ? "Bạn đang được nợ"
-                  : myBalance.balance < 0
-                  ? "Bạn đang nợ"
-                  : "Hạch toán sạch!"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <GroupBalanceSummary
+          myBalance={myBalance}
+          myDebts={debts.filter((d) => d.fromUserId === userId)}
+          members={group.members.map((m) => ({
+            userId: m.userId,
+            user: {
+              id: m.user.id,
+              displayName: m.user.displayName,
+              bankName: m.user.bankName,
+              accountNumber: m.user.accountNumber,
+              accountName: m.user.accountName,
+              sepayWebhookSecret: m.user.sepayWebhookSecret,
+              avatar: m.user.avatar,
+            },
+          }))}
+          groupId={id}
+          currentUserId={userId}
+          settlements={group.settlements.map((s) => ({
+            id: s.id,
+            fromUserId: s.fromUserId,
+            fromUserName: s.fromUser.displayName,
+            toUserId: s.toUserId,
+            toUserName: s.toUser.displayName,
+            amount: s.amount,
+            isConfirmed: s.isConfirmed,
+            createdAt: s.createdAt.toISOString(),
+            note: s.note,
+          }))}
+        />
       )}
 
       <Tabs defaultValue="expenses">
@@ -192,72 +231,31 @@ export default async function GroupDetailPage({
         </TabsList>
 
         {/* Expenses Tab */}
-        <TabsContent value="expenses" className="mt-4 space-y-3">
-          {group.expenses.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="py-16 text-center">
-                <Receipt className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground mb-3">Chưa có hoá đơn nào</p>
-                <Button asChild size="sm">
-                  <Link href={`/groups/${id}/expenses/new`}>Thêm hoá đơn đầu tiên</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            group.expenses.map((expense) => (
-              <Card key={expense.id} className="hover:shadow-sm transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <h3 className="font-medium text-sm">{expense.title}</h3>
-                        <Badge variant="secondary" className="text-[11px] font-medium py-0 px-2 h-5">
-                          {categoryEmojis[expense.category] || "📦"} {expense.category}
-                        </Badge>
-                        <div className="flex items-center gap-1">
-                          {statusIcon[expense.status as keyof typeof statusIcon]}
-                          <span className="text-xs text-muted-foreground">
-                            {statusLabel[expense.status as keyof typeof statusLabel]}
-                          </span>
-                        </div>
-                        <Badge variant="outline" className="text-xs">
-                          {expense.splitType === "EQUAL" ? "Chia đều" : "Chia riêng"}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Người trả:{" "}
-                        <span className="font-medium text-foreground">
-                          {expense.paidBy.displayName}
-                        </span>{" "}
-                        • {formatDate(expense.date)}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {expense.splits.map((split) => (
-                          <span
-                            key={split.id}
-                            className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full ${
-                              split.isPaid
-                                ? "bg-emerald-500/10 text-emerald-600"
-                                : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {split.user.displayName}: {formatVND(split.amount)}
-                            {split.isPaid && " ✓"}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-bold text-base">{formatVND(expense.amount)}</p>
-                      {isOwner && expense.status === "PENDING" && (
-                        <ExpenseApproveButton expenseId={expense.id} />
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
+        <TabsContent value="expenses" className="mt-4">
+          <ExpensesList
+            expenses={group.expenses.map((e) => ({
+              id: e.id,
+              title: e.title,
+              amount: e.amount,
+              splitType: e.splitType,
+              status: e.status,
+              date: e.date.toISOString(),
+              category: e.category,
+              paidBy: {
+                displayName: e.paidBy.displayName,
+              },
+              splits: e.splits.map((s) => ({
+                id: s.id,
+                amount: s.amount,
+                isPaid: s.isPaid,
+                user: {
+                  displayName: s.user.displayName,
+                },
+              })),
+            }))}
+            isOwner={isOwner}
+            groupId={id}
+          />
         </TabsContent>
 
         {/* Debts Tab */}
@@ -282,6 +280,7 @@ export default async function GroupDetailPage({
                 accountNumber: m.user.accountNumber,
                 accountName: m.user.accountName,
                 sepayWebhookSecret: m.user.sepayWebhookSecret,
+                avatar: m.user.avatar,
               },
             }))}
             settlements={group.settlements.map(s => ({
@@ -307,6 +306,17 @@ export default async function GroupDetailPage({
               })),
               category: e.category,
             }))}
+            fundManagerId={group.fundManagerId}
+            fundAllocations={group.fundAllocations.map(fa => ({
+              id: fa.id,
+              amount: fa.amount,
+              note: fa.note,
+              date: fa.date.toISOString(),
+              fromUserId: fa.fromUserId,
+              fromUserName: fa.fromUser.displayName,
+              toUserId: fa.toUserId,
+              toUserName: fa.toUser.displayName,
+            }))}
           />
         </TabsContent>
 
@@ -322,6 +332,9 @@ export default async function GroupDetailPage({
               {group.members.map((member) => (
                 <div key={member.id} className="flex items-center gap-3">
                   <Avatar className="h-9 w-9">
+                    {member.user.avatar && (
+                      <AvatarImage src={member.user.avatar} alt={member.user.displayName} className="object-cover" />
+                    )}
                     <AvatarFallback className="bg-primary/10 text-primary text-xs">
                       {getInitials(member.user.displayName)}
                     </AvatarFallback>
@@ -340,13 +353,49 @@ export default async function GroupDetailPage({
                   {member.role === "OWNER" && (
                     <Badge variant="secondary" className="gap-1 text-xs">
                       <Crown className="h-3 w-3" />
-                      Owner
+                      Trưởng nhóm
                     </Badge>
                   )}
+                  <MemberQRAction member={member} />
                 </div>
               ))}
             </CardContent>
           </Card>
+
+          {/* Biểu đồ xu hướng dư nợ nhóm */}
+          <DebtTrendChart
+            currentUserId={userId}
+            members={group.members.map((m) => ({
+              userId: m.userId,
+              user: {
+                id: m.user.id,
+                displayName: m.user.displayName,
+              },
+            }))}
+            settlements={group.settlements.map((s) => ({
+              id: s.id,
+              fromUserId: s.fromUserId,
+              fromUserName: s.fromUser.displayName,
+              toUserId: s.toUserId,
+              toUserName: s.toUser.displayName,
+              amount: s.amount,
+              isConfirmed: s.isConfirmed,
+              createdAt: s.createdAt.toISOString(),
+              note: s.note,
+            }))}
+            expenses={approvedExpenses.map((e) => ({
+              id: e.id,
+              title: e.title,
+              amount: e.amount,
+              paidById: e.paidById,
+              date: e.date.toISOString(),
+              splits: e.splits.map((s) => ({
+                userId: s.userId,
+                amount: s.amount,
+              })),
+              category: e.category,
+            }))}
+          />
 
           {isOwner && (
             <AddMemberForm groupId={id} />
@@ -354,8 +403,32 @@ export default async function GroupDetailPage({
         </TabsContent>
 
         {/* Settings Tab */}
-        <TabsContent value="settings" className="mt-4">
+        <TabsContent value="settings" className="space-y-4 mt-4">
           <InviteSection inviteUrl={inviteUrl} inviteCode={group.inviteCode} />
+          {isOwner && (
+            <>
+              <GroupSettingsForm
+                group={{
+                  id,
+                  name: group.name,
+                  description: group.description,
+                  avatar: group.avatar,
+                }}
+              />
+              <FundManagerSettings
+                groupId={id}
+                members={group.members.map((m) => ({
+                  userId: m.userId,
+                  user: {
+                    id: m.user.id,
+                    displayName: m.user.displayName,
+                    username: m.user.username,
+                  },
+                }))}
+                currentFundManagerId={group.fundManagerId}
+              />
+            </>
+          )}
         </TabsContent>
       </Tabs>
     </div>

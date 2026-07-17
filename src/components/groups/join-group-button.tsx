@@ -21,7 +21,17 @@ export function JoinGroupButton({ groupId }: JoinGroupButtonProps) {
       method: "POST",
     });
 
-    const data = await res.json();
+    let data: any = {};
+    try {
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        data = { error: `Đã xảy ra lỗi trên hệ thống (Mã lỗi: ${res.status})` };
+      }
+    } catch (e) {
+      data = { error: "Không thể xử lý phản hồi từ hệ thống" };
+    }
     setLoading(false);
 
     if (res.ok) {

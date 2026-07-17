@@ -35,7 +35,12 @@ export function calculateDebts(
     amount: number;
     isConfirmed: boolean;
   }>,
-  ownerId: string
+  ownerId: string,
+  fundAllocations?: Array<{
+    fromUserId: string;
+    toUserId: string;
+    amount: number;
+  }>
 ): { debts: DebtEntry[]; balances: UserBalance[] } {
   // Tính balance net cho mỗi người
   const balanceMap: Map<string, number> = new Map();
@@ -70,9 +75,23 @@ export function calculateDebts(
   for (const settlement of settlements) {
     if (!settlement.isConfirmed) continue;
     const fromBalance = balanceMap.get(settlement.fromUserId) ?? 0;
-    const toBalance = balanceMap.get(settlement.toUserId) ?? 0;
     balanceMap.set(settlement.fromUserId, fromBalance + settlement.amount);
+
+    const toBalance = balanceMap.get(settlement.toUserId) ?? 0;
     balanceMap.set(settlement.toUserId, toBalance - settlement.amount);
+  }
+
+  // Điều chỉnh balance từ fundAllocations (Người quản lý quỹ cấp tiền cho thành viên)
+  if (fundAllocations) {
+    for (const allocation of fundAllocations) {
+      // 1. Trừ tiền người phát quỹ
+      const fromBalance = balanceMap.get(allocation.fromUserId) ?? 0;
+      balanceMap.set(allocation.fromUserId, fromBalance - allocation.amount);
+
+      // 2. Cộng tiền người nhận quỹ (đọc lại giá trị mới nhất để tránh đè nếu trùng ID)
+      const toBalance = balanceMap.get(allocation.toUserId) ?? 0;
+      balanceMap.set(allocation.toUserId, toBalance + allocation.amount);
+    }
   }
 
   // Build balance array

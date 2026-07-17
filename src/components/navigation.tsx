@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Users,
-  PlusCircle,
+  Plus,
   Receipt,
   Settings,
 } from "lucide-react";
@@ -14,7 +14,6 @@ import {
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/groups", label: "Nhóm", icon: Users },
-  { href: "/groups/new", label: "Tạo nhóm", icon: PlusCircle },
   { href: "/settings", label: "Cài đặt", icon: Settings },
 ];
 
@@ -86,3 +85,23 @@ export function Sidebar() {
     </aside>
   );
 }
+
+// Floating button to create new group
+export function FloatingCreateGroupButton() {
+  const pathname = usePathname();
+
+  // Hide the floating button on the group creation page itself
+  if (pathname === "/groups/new") return null;
+
+  return (
+    <Link
+      href="/groups/new"
+      className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 flex items-center justify-center w-14 h-14 md:w-auto md:h-12 md:px-4 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 hover:shadow-primary/20 hover:shadow-xl gap-2 group/fab"
+      aria-label="Tạo nhóm mới"
+    >
+      <Plus className="h-6 w-6 transition-transform group-hover/fab:rotate-90 duration-300" />
+      <span className="hidden md:inline text-sm font-semibold tracking-wide">Tạo nhóm mới</span>
+    </Link>
+  );
+}
+
