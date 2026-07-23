@@ -33,9 +33,10 @@ export function FundAllocationTrigger({
     <>
       <Button
         onClick={() => setIsOpen(true)}
-        className="gap-1 font-bold text-xs h-9 sm:h-10 px-4 bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-600 dark:hover:bg-amber-700 cursor-pointer shrink-0"
+        size="lg"
+        className="gap-2 shrink-0 h-11 md:h-12 px-5 md:px-6 text-sm md:text-base font-bold shadow-md rounded-xl bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-600 dark:hover:bg-amber-700 cursor-pointer"
       >
-        <Coins className="h-4 w-4 text-white" />
+        <Coins className="h-5 w-5 text-white" />
         <span>Cấp tiền quỹ</span>
       </Button>
 

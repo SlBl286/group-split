@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/brand-logo";
 import {
   LayoutDashboard,
   Users,
   Plus,
-  Receipt,
   Settings,
 } from "lucide-react";
 
@@ -54,11 +54,8 @@ export function Sidebar() {
 
   return (
     <aside className="hidden md:flex flex-col w-64 min-h-screen border-r bg-background/95 backdrop-blur">
-      <div className="flex items-center gap-2 px-6 py-5 border-b">
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-          <Receipt className="h-4 w-4 text-primary-foreground" />
-        </div>
-        <span className="font-bold text-lg tracking-tight">GroupSplit</span>
+      <div className="flex items-center px-6 py-5 border-b">
+        <BrandLogo size="md" href="/dashboard" />
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
@@ -109,11 +106,11 @@ export function FloatingCreateGroupButton() {
   return (
     <Link
       href={href}
-      className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 flex items-center justify-center w-14 h-14 md:w-auto md:h-12 md:px-4 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 hover:shadow-primary/20 hover:shadow-xl gap-2 group/fab"
+      className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 flex items-center justify-center w-16 h-16 md:w-auto md:h-12 md:px-5 rounded-full bg-primary text-primary-foreground shadow-xl hover:bg-primary/90 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 hover:shadow-primary/30 gap-2.5 group/fab"
       aria-label={label}
     >
-      <Plus className="h-6 w-6 transition-transform group-hover/fab:rotate-90 duration-300" />
-      <span className="hidden md:inline text-sm font-semibold tracking-wide">{label}</span>
+      <Plus className="h-7 w-7 md:h-5 md:w-5 transition-transform group-hover/fab:rotate-90 duration-300" />
+      <span className="hidden md:inline text-base font-bold tracking-wide">{label}</span>
     </Link>
   );
 }

@@ -44,7 +44,7 @@ export function FundAllocationForm({
 }: FundAllocationFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [amount, setAmount] = useState("30000"); // Mặc định 30,000 VND
+  const [amount, setAmount] = useState("40000"); // Mặc định 40,000 VND
   const [date, setDate] = useState<Date>(new Date());
   const [note, setNote] = useState("Cấp tiền ăn trưa");
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(

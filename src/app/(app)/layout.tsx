@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Sidebar, BottomNav, FloatingCreateGroupButton } from "@/components/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserMenu } from "@/components/user-menu";
+import { BrandLogo } from "@/components/brand-logo";
 import { prisma } from "@/lib/prisma";
 
 export default async function AppLayout({
@@ -25,10 +26,8 @@ export default async function AppLayout({
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top header */}
         <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b bg-background/95 backdrop-blur px-4 md:px-6">
-          <div className="md:hidden flex items-center gap-2">
-            <span className="font-bold text-base tracking-tight text-primary">
-              GroupSplit
-            </span>
+          <div className="md:hidden flex items-center">
+            <BrandLogo size="sm" href="/dashboard" />
           </div>
           <div className="hidden md:block" />
           <div className="flex items-center gap-2">

@@ -19,6 +19,14 @@ export const metadata: Metadata = {
   description:
     "Ứng dụng theo dõi chi tiêu nhóm, chia hoá đơn và quản lý dư nợ giữa bạn bè.",
   keywords: ["chia tiền", "nhóm", "theo dõi chi tiêu", "group split"],
+  icons: {
+    icon: [
+      { url: "/logo.ico", sizes: "any" },
+      { url: "/logo.png", type: "image/png" },
+    ],
+    shortcut: "/logo.ico",
+    apple: "/logo.png",
+  },
 };
 
 export default async function RootLayout({

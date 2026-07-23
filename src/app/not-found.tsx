@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { FileQuestion, ArrowLeft, Home, Receipt } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
+import { FileQuestion, ArrowLeft, Home } from "lucide-react";
 
 export default function NotFound() {
   const router = useRouter();
@@ -21,11 +22,8 @@ export default function NotFound() {
       </div>
 
       {/* Header logo */}
-      <div className="absolute top-6 left-6 flex items-center gap-2 select-none">
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-          <Receipt className="h-4 w-4 text-primary-foreground" />
-        </div>
-        <span className="font-bold text-lg tracking-tight">GroupSplit</span>
+      <div className="absolute top-6 left-6 flex items-center select-none">
+        <BrandLogo size="md" href="/" />
       </div>
 
       {/* Main card */}

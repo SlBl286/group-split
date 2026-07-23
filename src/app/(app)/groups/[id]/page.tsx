@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
+  Settings,
 } from "lucide-react";
 import { InviteSection } from "@/components/groups/invite-section";
 import { AddMemberForm } from "@/components/groups/add-member-form";
@@ -165,9 +166,9 @@ export default async function GroupDetailPage({
               },
             }))}
           />
-          <Button asChild className="gap-2 shrink-0">
+          <Button asChild size="lg" className="gap-2 shrink-0 h-11 md:h-12 px-5 md:px-6 text-sm md:text-base font-bold shadow-md rounded-xl">
             <Link href={`/groups/${id}/expenses/new`}>
-              <Plus className="h-4 w-4" />
+              <Plus className="h-5 w-5" />
               Thêm hoá đơn
             </Link>
           </Button>
@@ -208,26 +209,27 @@ export default async function GroupDetailPage({
       )}
 
       <Tabs defaultValue="expenses">
-        <TabsList className="w-full sm:w-auto grid grid-cols-4 sm:flex h-auto sm:h-9">
-          <TabsTrigger value="expenses" className="gap-1 text-xs sm:text-sm">
-            <Receipt className="h-3.5 w-3.5" />
-            Hoá đơn
+        <TabsList className="w-full sm:w-auto grid grid-cols-4 sm:flex h-auto sm:h-9 p-1 bg-muted/80">
+          <TabsTrigger value="expenses" className="gap-1 px-1 sm:px-3 py-1.5 text-[11px] sm:text-sm font-semibold min-w-0">
+            <Receipt className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Hoá đơn</span>
             {pendingExpenses.length > 0 && (
-              <Badge variant="destructive" className="ml-1 h-4 px-1 text-xs">
+              <Badge variant="destructive" className="ml-0.5 h-3.5 px-1 text-[10px] shrink-0 font-bold leading-none">
                 {pendingExpenses.length}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="debts" className="gap-1 text-xs sm:text-sm">
-            <ArrowRight className="h-3.5 w-3.5" />
-            Dư nợ
+          <TabsTrigger value="debts" className="gap-1 px-1 sm:px-3 py-1.5 text-[11px] sm:text-sm font-semibold min-w-0">
+            <ArrowRight className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Dư nợ</span>
           </TabsTrigger>
-          <TabsTrigger value="members" className="gap-1 text-xs sm:text-sm">
-            <Users className="h-3.5 w-3.5" />
-            Thành viên
+          <TabsTrigger value="members" className="gap-1 px-1 sm:px-3 py-1.5 text-[11px] sm:text-sm font-semibold min-w-0">
+            <Users className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Thành viên</span>
           </TabsTrigger>
-          <TabsTrigger value="settings" className="gap-1 text-xs sm:text-sm">
-            Cài đặt
+          <TabsTrigger value="settings" className="gap-1 px-1 sm:px-3 py-1.5 text-[11px] sm:text-sm font-semibold min-w-0">
+            <Settings className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Cài đặt</span>
           </TabsTrigger>
         </TabsList>
 

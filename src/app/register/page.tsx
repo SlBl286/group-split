@@ -1,9 +1,9 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { RegisterForm } from "@/components/auth/register-form";
-import { Receipt } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BrandLogo } from "@/components/brand-logo";
 
 export const metadata = {
   title: "Đăng ký - GroupSplit",
@@ -23,12 +23,9 @@ export default async function RegisterPage() {
 
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
-          <Link href="/" className="flex items-center gap-2 mb-2">
-            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
-              <Receipt className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-xl">GroupSplit</span>
-          </Link>
+          <div className="mb-2">
+            <BrandLogo size="lg" href="/" />
+          </div>
           <h1 className="text-2xl font-bold mt-4">Tạo tài khoản</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Miễn phí, không cần email

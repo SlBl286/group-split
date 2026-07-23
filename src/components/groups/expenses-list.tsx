@@ -81,12 +81,16 @@ export function ExpensesList({ expenses, isOwner, groupId, currentUserId, curren
     return true;
   });
 
-  // Sort by date newest first
-  const sortedExpenses = [...filteredExpenses].sort(
+  // Separate pending expenses to display at the top
+  const pendingExpenses = filteredExpenses.filter((e) => e.status === "PENDING");
+  const processedExpenses = filteredExpenses.filter((e) => e.status !== "PENDING");
+
+  // Sort processed expenses by date newest first
+  const sortedExpenses = [...processedExpenses].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   );
 
-  // Pagination config
+  // Pagination config for processed expenses
   const itemsPerPage = 10;
   const totalPages = Math.ceil(sortedExpenses.length / itemsPerPage);
   const paginatedExpenses = sortedExpenses.slice(
@@ -137,7 +141,92 @@ export function ExpensesList({ expenses, isOwner, groupId, currentUserId, curren
         </CardContent>
       </Card>
 
-      {/* Expenses list */}
+      {/* Mục hoá đơn cần duyệt (Cho Trưởng nhóm & Thành viên) */}
+      {pendingExpenses.length > 0 && (
+        <div className="space-y-3 p-4 rounded-2xl border-2 border-amber-500/40 bg-amber-500/5 shadow-md">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-amber-500 animate-pulse" />
+              <h3 className="font-extrabold text-sm sm:text-base text-amber-900 dark:text-amber-200">
+                Hoá đơn cần duyệt ({pendingExpenses.length})
+              </h3>
+            </div>
+            {isOwner && (
+              <Badge className="bg-amber-500 text-white hover:bg-amber-600 text-xs font-semibold px-2.5 py-0.5">
+                Trưởng nhóm duyệt
+              </Badge>
+            )}
+          </div>
+          
+          <div className="space-y-2.5">
+            {pendingExpenses.map((expense) => (
+              <Card key={expense.id} className="border-amber-500/30 bg-card shadow-sm hover:shadow-md transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <h4 className="font-bold text-sm">{expense.title}</h4>
+                        <Badge variant="secondary" className="text-[11px] font-medium py-0 px-2 h-5">
+                          {expense.categoryIcon || categoryEmojis[expense.category] || "📦"} {expense.category}
+                        </Badge>
+                        <Badge variant="outline" className="text-[11px] border-amber-500 text-amber-600 bg-amber-500/10">
+                          Chờ duyệt
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {expense.splitType === "EQUAL" ? "Chia đều" : "Chia riêng"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Người trả:{" "}
+                        <span className={`font-semibold ${
+                          expense.paidBy.displayName === currentUserName
+                            ? "text-blue-600 dark:text-blue-400"
+                            : "text-foreground"
+                        }`}>
+                          {expense.paidBy.displayName === currentUserName
+                            ? "Bạn"
+                            : expense.paidBy.displayName}
+                        </span>{" "}
+                        • {formatDate(expense.date)}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {expense.splits.map((split) => {
+                          const isCurrentUser = split.user.displayName === currentUserName;
+                          return (
+                            <span
+                              key={split.id}
+                              className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium ${
+                                isCurrentUser
+                                  ? split.isPaid
+                                    ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/30"
+                                    : "bg-blue-500/10 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/20"
+                                  : split.isPaid
+                                    ? "bg-emerald-500/10 text-emerald-600"
+                                    : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              {isCurrentUser ? "Bạn" : split.user.displayName}: {formatVND(split.amount)}
+                              {split.isPaid && " ✓"}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-extrabold text-base text-amber-600 dark:text-amber-400">{formatVND(expense.amount)}</p>
+                      {isOwner && (
+                        <ExpenseApproveButton expenseId={expense.id} />
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Expenses list (Processed) */}
       {filteredExpenses.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-16 text-center">
@@ -145,6 +234,8 @@ export function ExpensesList({ expenses, isOwner, groupId, currentUserId, curren
             <p className="text-sm text-muted-foreground mb-3">Không có hoá đơn nào khớp bộ lọc</p>
           </CardContent>
         </Card>
+      ) : processedExpenses.length === 0 && pendingExpenses.length > 0 ? (
+        <p className="text-xs text-center text-muted-foreground py-4">Tất cả hoá đơn hiện tại đang chờ duyệt ở trên.</p>
       ) : (
         <div className="space-y-6">
           {Object.entries(groupedExpenses).map(([monthHeader, list]) => (
@@ -229,7 +320,7 @@ export function ExpensesList({ expenses, isOwner, groupId, currentUserId, curren
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-4 px-1">
               <span className="text-xs text-muted-foreground">
-                Trang {currentPage} / {totalPages} (Tổng {filteredExpenses.length} hoá đơn)
+                Trang {currentPage} / {totalPages} (Tổng {processedExpenses.length} hoá đơn đã duyệt)
               </span>
               <div className="flex items-center gap-2">
                 <Button

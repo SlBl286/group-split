@@ -245,6 +245,7 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
 
     if (parsedAmount <= 0) {
@@ -295,30 +296,36 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
       }
     }
 
-    const res = await fetch(`/api/groups/${groupId}/expenses`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        description,
-        amount: parsedAmount,
-        paidById,
-        splitType,
-        date: dateStr,
-        splits,
-        category,
-        categoryId: selectedCategoryId,
-      }),
-    });
+    try {
+      const res = await fetch(`/api/groups/${groupId}/expenses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description,
+          amount: parsedAmount,
+          paidById,
+          splitType,
+          date: dateStr,
+          splits,
+          category,
+          categoryId: selectedCategoryId,
+        }),
+      });
 
-    const data = await res.json();
-    setLoading(false);
+      const data = await res.json();
 
-    if (!res.ok) {
-      toast.error(data.error || "Thêm hoá đơn thất bại");
-    } else {
-      toast.success("Đã thêm hoá đơn! Đang chờ owner duyệt.");
-      router.push(`/groups/${groupId}`);
+      if (!res.ok) {
+        toast.error(data.error || "Thêm hoá đơn thất bại");
+        setLoading(false);
+      } else {
+        toast.success("Đã thêm hoá đơn! Đang chờ owner duyệt.");
+        router.push(`/groups/${groupId}`);
+      }
+    } catch (err) {
+      console.error("Lỗi khi thêm hoá đơn:", err);
+      toast.error("Đã xảy ra lỗi kết nối, vui lòng thử lại");
+      setLoading(false);
     }
   }
 
@@ -650,20 +657,27 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
         </CardContent>
       </Card>
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 pt-2">
         <Button
           type="button"
           variant="outline"
-          className="flex-1"
+          size="lg"
+          className="flex-1 h-12 text-base font-semibold border-border hover:bg-accent"
           onClick={() => router.back()}
+          disabled={loading}
         >
           Huỷ
         </Button>
-        <Button type="submit" className="flex-1" disabled={loading}>
+        <Button 
+          type="submit" 
+          size="lg" 
+          className="flex-1 h-12 text-base font-semibold shadow-md gap-2" 
+          disabled={loading}
+        >
           {loading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Đang thêm...
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Đang xử lý...
             </>
           ) : (
             "Thêm hoá đơn"

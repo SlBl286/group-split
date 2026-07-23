@@ -4,10 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BrandLogo } from "@/components/brand-logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils/format";
 import {
-  Receipt,
   Users,
   PieChart,
   ArrowRight,
@@ -39,14 +39,7 @@ export default async function LandingPage() {
       {/* Navbar */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 max-w-6xl mx-auto items-center justify-between px-4">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/20">
-              <Receipt className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-              GroupSplit
-            </span>
-          </div>
+          <BrandLogo size="md" href="/" />
 
           <div className="flex items-center gap-3">
             <ThemeToggle />
@@ -206,10 +199,7 @@ export default async function LandingPage() {
       {/* Footer */}
       <footer className="border-t py-8 text-center text-xs text-muted-foreground bg-muted/10">
         <div className="container max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between px-4 gap-4">
-          <div className="flex items-center gap-1.5">
-            <Receipt className="h-4 w-4 text-muted-foreground" />
-            <span className="font-bold">GroupSplit</span>
-          </div>
+          <BrandLogo size="sm" href="/" />
           <p>© {new Date().getFullYear()} GroupSplit. Made with ❤️ to simplify expense sharing.</p>
         </div>
       </footer>
