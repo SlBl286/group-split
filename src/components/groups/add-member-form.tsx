@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, UserPlus } from "lucide-react";
@@ -34,9 +33,9 @@ export function AddMemberForm({ groupId }: AddMemberFormProps) {
     setLoading(false);
 
     if (!res.ok) {
-      toast.error(data.error || "Thêm thành viên thất bại");
+      toast.error(data.error || "Gửi lời mời thất bại");
     } else {
-      toast.success(`Đã thêm ${username} vào nhóm!`);
+      toast.success(data.message || `Đã gửi lời mời tới ${username}!`);
       (e.target as HTMLFormElement).reset();
       router.refresh();
     }
@@ -47,7 +46,7 @@ export function AddMemberForm({ groupId }: AddMemberFormProps) {
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
           <UserPlus className="h-4 w-4" />
-          Thêm thành viên
+          Mời thành viên mới
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -58,13 +57,13 @@ export function AddMemberForm({ groupId }: AddMemberFormProps) {
             required
             className="flex-1"
           />
-          <Button type="submit" disabled={loading} className="gap-1.5">
+          <Button type="submit" disabled={loading} className="gap-1.5 font-semibold">
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <UserPlus className="h-4 w-4" />
             )}
-            Thêm
+            Mời
           </Button>
         </form>
       </CardContent>

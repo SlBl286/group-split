@@ -54,12 +54,12 @@ export function UserMenu({ user }: UserMenuProps) {
         <DropdownMenuSeparator />
         
         <DropdownMenuGroup>
-          <Link href="/settings" passHref>
-            <DropdownMenuItem className="cursor-pointer">
+          <DropdownMenuItem className="p-0 cursor-pointer">
+            <Link href="/settings" className="flex items-center w-full px-1.5 py-1 text-sm">
               <Settings className="mr-2 h-4 w-4" />
               <span>Cập nhật tài khoản</span>
-            </DropdownMenuItem>
-          </Link>
+            </Link>
+          </DropdownMenuItem>
         </DropdownMenuGroup>
         
         <DropdownMenuSeparator />

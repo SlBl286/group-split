@@ -18,7 +18,7 @@ export default async function GroupsPage() {
   const userId = session!.user.id!;
 
   const memberships = await prisma.groupMember.findMany({
-    where: { userId },
+    where: { userId, isLeft: false },
     include: {
       group: {
         include: {
@@ -69,6 +69,7 @@ export default async function GroupsPage() {
               0
             );
             const isOwner = role === "OWNER";
+            const activeMembersCount = group.members.filter((m) => !m.isLeft).length;
 
             return (
               <Link key={group.id} href={`/groups/${group.id}`}>
@@ -108,7 +109,7 @@ export default async function GroupsPage() {
                       <div className="bg-muted/50 rounded-lg p-3 text-center">
                         <p className="text-xs text-muted-foreground">Thành viên</p>
                         <p className="font-semibold text-sm mt-0.5">
-                          {group.members.length}
+                          {activeMembersCount}
                         </p>
                       </div>
                       <div className="bg-muted/50 rounded-lg p-3 text-center">

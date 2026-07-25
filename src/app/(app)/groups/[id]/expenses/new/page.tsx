@@ -25,8 +25,8 @@ export default async function NewExpensePage({
 
   if (!group) notFound();
 
-  const isMember = group.members.some((m) => m.userId === userId);
-  if (!isMember) redirect("/groups");
+  const activeMember = group.members.find((m) => m.userId === userId && !m.isLeft);
+  if (!activeMember) redirect("/groups");
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -39,7 +39,7 @@ export default async function NewExpensePage({
 
       <AddExpenseForm
         groupId={id}
-        members={group.members.map((m) => ({
+        members={group.members.filter((m) => !m.isLeft).map((m) => ({
           userId: m.userId,
           displayName: m.user.displayName,
           avatar: m.user.avatar,

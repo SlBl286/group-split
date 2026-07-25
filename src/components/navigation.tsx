@@ -23,23 +23,23 @@ export function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:hidden">
-      <div className="flex items-center justify-around h-16 px-2">
+      <div className="grid grid-cols-3 items-center justify-items-center h-16 px-2">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all",
+                "flex flex-col items-center justify-center gap-1 py-1.5 px-2 rounded-xl transition-all w-full h-12",
                 isActive
-                  ? "text-primary bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  ? "text-primary bg-primary/10 font-bold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent font-medium"
               )}
             >
-              <Icon className="h-5 w-5" />
-              <span className="text-xs font-medium">{item.label}</span>
+              <Icon className="h-5 w-5 shrink-0" />
+              <span className="text-[11px] leading-none">{item.label}</span>
             </Link>
           );
         })}
@@ -106,11 +106,11 @@ export function FloatingCreateGroupButton() {
   return (
     <Link
       href={href}
-      className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 flex items-center justify-center w-16 h-16 md:w-auto md:h-12 md:px-5 rounded-full bg-primary text-primary-foreground shadow-xl hover:bg-primary/90 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 hover:shadow-primary/30 gap-2.5 group/fab"
+      className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-30 flex items-center justify-center w-14 h-14 md:w-auto md:h-11 md:px-4 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 gap-2 group/fab"
       aria-label={label}
     >
-      <Plus className="h-7 w-7 md:h-5 md:w-5 transition-transform group-hover/fab:rotate-90 duration-300" />
-      <span className="hidden md:inline text-base font-bold tracking-wide">{label}</span>
+      <Plus className="h-6 w-6 md:h-4 md:w-4 transition-transform group-hover/fab:rotate-90 duration-300" />
+      <span className="hidden md:inline text-sm font-bold tracking-wide">{label}</span>
     </Link>
   );
 }

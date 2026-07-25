@@ -58,6 +58,14 @@ export default async function JoinGroupPage({
     redirect(`/groups/${group.id}`);
   }
 
+  const pendingRequest = await prisma.groupJoinRequest.findFirst({
+    where: {
+      groupId: group.id,
+      userId,
+      status: "PENDING",
+    },
+  });
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <div className="absolute inset-0 -z-10 [background:radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background" />
@@ -78,7 +86,7 @@ export default async function JoinGroupPage({
             {group.members.length} thành viên • Owner: {group.owner.displayName}
           </div>
 
-          <JoinGroupButton groupId={group.id} />
+          <JoinGroupButton groupId={group.id} initialPending={!!pendingRequest} />
         </CardContent>
       </Card>
     </div>

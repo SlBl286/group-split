@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-
 import { eventEmitter } from "@/lib/events";
+import { createNotification } from "@/lib/notifications";
+import { formatVND } from "@/lib/utils/format";
 
 export async function POST(
   req: NextRequest,
@@ -20,6 +21,9 @@ export async function POST(
   });
   if (!membership) return NextResponse.json({ error: "Không thuộc nhóm này" }, { status: 403 });
 
+  const group = await prisma.group.findUnique({ where: { id: groupId } });
+  if (!group) return NextResponse.json({ error: "Nhóm không tồn tại" }, { status: 404 });
+
   const { title, description, amount, paidById, splitType, date, splits, category, categoryId } =
     await req.json();
 
@@ -28,6 +32,7 @@ export async function POST(
   }
 
   try {
+    const isApproved = membership.role === "OWNER";
     const expense = await prisma.expense.create({
       data: {
         title,
@@ -38,7 +43,7 @@ export async function POST(
         date: date ? new Date(date) : new Date(),
         groupId,
         createdById: userId,
-        status: membership.role === "OWNER" ? "APPROVED" : "PENDING",
+        status: isApproved ? "APPROVED" : "PENDING",
         category: category || "Khác",
         categoryId: categoryId || null,
         splits: {
@@ -50,6 +55,18 @@ export async function POST(
       },
       include: { splits: true },
     });
+
+    // Notify Owner if pending approval
+    if (!isApproved && group.ownerId !== userId) {
+      await createNotification({
+        userId: group.ownerId,
+        title: `Hóa đơn mới chờ duyệt`,
+        content: `${session.user.name || "Thành viên"} đã tạo hóa đơn "${title}" (${formatVND(amount)}) cần bạn duyệt.`,
+        type: "EXPENSE_PENDING",
+        link: `/groups/${groupId}`,
+        entityId: expense.id,
+      });
+    }
 
     // Phát sóng tin nhắn cập nhật cho tất cả client
     eventEmitter.emit(`group:${groupId}`, { type: "REFRESH" });

@@ -216,7 +216,7 @@ export default async function DashboardPage({
 
   // 5. Tính số tiền đang nợ hoặc cần được thanh toán theo nhóm (Lũy kế toàn thời gian)
   const allMemberships = await prisma.groupMember.findMany({
-    where: { userId },
+    where: { userId, isLeft: false },
     include: {
       group: {
         include: {

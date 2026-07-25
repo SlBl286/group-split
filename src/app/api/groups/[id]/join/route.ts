@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(
   req: NextRequest,
@@ -16,16 +17,40 @@ export async function POST(
     const group = await prisma.group.findUnique({ where: { id: groupId } });
     if (!group) return NextResponse.json({ error: "Nhóm không tồn tại" }, { status: 404 });
 
-    const existing = await prisma.groupMember.findUnique({
+    const existingMember = await prisma.groupMember.findUnique({
       where: { userId_groupId: { userId, groupId } },
     });
-    if (existing) return NextResponse.json({ error: "Đã là thành viên" }, { status: 409 });
+    if (existingMember && !existingMember.isLeft) return NextResponse.json({ error: "Bạn đã là thành viên của nhóm này" }, { status: 409 });
 
-    const member = await prisma.groupMember.create({
-      data: { userId, groupId, role: "MEMBER" },
+    const existingRequest = await prisma.groupJoinRequest.findFirst({
+      where: { groupId, userId, status: "PENDING" },
+    });
+    if (existingRequest) {
+      return NextResponse.json({ error: "Bạn đã gửi yêu cầu gia nhập nhóm này, đang chờ Trưởng nhóm phê duyệt" }, { status: 409 });
+    }
+
+    const joinRequest = await prisma.groupJoinRequest.create({
+      data: {
+        groupId,
+        userId,
+        status: "PENDING",
+      },
     });
 
-    return NextResponse.json(member, { status: 201 });
+    // Notify Group Owner
+    await createNotification({
+      userId: group.ownerId,
+      title: `Yêu cầu tham gia nhóm "${group.name}"`,
+      content: `${session.user.name || "Người dùng"} muốn tham gia nhóm "${group.name}".`,
+      type: "JOIN_REQUEST",
+      entityId: joinRequest.id,
+      link: `/notifications`,
+    });
+
+    return NextResponse.json(
+      { message: "Đã gửi yêu cầu tham gia nhóm, đang chờ Trưởng nhóm phê duyệt", joinRequest },
+      { status: 201 }
+    );
   } catch (error: any) {
     console.error("Error in join API:", error);
     return NextResponse.json(
@@ -34,4 +59,3 @@ export async function POST(
     );
   }
 }
-

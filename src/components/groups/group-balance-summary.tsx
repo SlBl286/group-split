@@ -5,8 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowRight, Clock, Banknote } from "lucide-react";
+import { ArrowRight, Clock, Banknote, FileText } from "lucide-react";
 import { PayDialog } from "./pay-dialog";
+import { DebtBreakdownDialog } from "./debt-breakdown-dialog";
 import { formatVND, getInitials } from "@/lib/utils/format";
 
 interface Member {
@@ -36,21 +37,28 @@ interface GroupBalanceSummaryProps {
     balance: number;
   };
   myDebts: DebtEntry[];
+  myClaims?: DebtEntry[];
   members: Member[];
   groupId: string;
   currentUserId: string;
   settlements: any[];
+  expenses?: any[];
+  fundAllocations?: any[];
 }
 
 export function GroupBalanceSummary({
   myBalance,
   myDebts,
+  myClaims = [],
   members,
   groupId,
   currentUserId,
   settlements,
+  expenses = [],
+  fundAllocations = [],
 }: GroupBalanceSummaryProps) {
   const [activeDebt, setActiveDebt] = useState<DebtEntry | null>(null);
+  const [breakdownDebt, setBreakdownDebt] = useState<DebtEntry | null>(null);
 
   // Filter settlements to check if there is a pending settlement for a specific debt key
   const hasPendingSettlement = (debt: DebtEntry) => {
@@ -100,6 +108,72 @@ export function GroupBalanceSummary({
             </div>
           </div>
 
+          {/* List of claims to receive */}
+          {myClaims.length > 0 && (
+            <div className="pt-4 border-t border-border/40 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                Các khoản bạn sẽ nhận lại:
+              </p>
+              <div className="space-y-2">
+                {myClaims.map((debt) => {
+                  const key = `${debt.fromUserId}-${debt.toUserId}`;
+                  const fromMember = members.find((m) => m.userId === debt.fromUserId);
+                  const toMember = members.find((m) => m.userId === debt.toUserId);
+                  const fromAvatar = fromMember?.user.avatar;
+                  const toAvatar = toMember?.user.avatar;
+
+                  return (
+                    <div
+                      key={key}
+                      className="flex items-center justify-between gap-3 p-3 rounded-lg bg-card/40 backdrop-blur-xs border border-border/50 text-xs shadow-xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <Avatar className="h-7 w-7 shrink-0 border">
+                          {fromAvatar && (
+                            <AvatarImage src={fromAvatar} alt={debt.fromUserName} className="object-cover" />
+                          )}
+                          <AvatarFallback className="text-[10px]">
+                            {getInitials(debt.fromUserName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <Avatar className="h-7 w-7 shrink-0 border">
+                          {toAvatar && (
+                            <AvatarImage src={toAvatar} alt={debt.toUserName} className="object-cover" />
+                          )}
+                          <AvatarFallback className="text-[10px]">
+                            {getInitials(debt.toUserName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="font-semibold truncate">
+                            <span className="text-foreground font-bold">{debt.fromUserName}</span> sẽ trả cho Bạn
+                          </p>
+                          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono mt-0.5 font-bold">
+                            Số tiền: {formatVND(debt.amount)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setBreakdownDebt(debt)}
+                          className="h-7 px-2 text-[10px] font-semibold gap-1 text-muted-foreground hover:text-foreground"
+                          title="Xem chi tiết các hóa đơn cấu thành khoản tiền này"
+                        >
+                          <FileText className="h-3.5 w-3.5 text-emerald-500" />
+                          <span>Chi tiết</span>
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* List of user's own debts to settle */}
           {myDebts.length > 0 && (
             <div className="pt-4 border-t border-border/40 space-y-3">
@@ -148,7 +222,18 @@ export function GroupBalanceSummary({
                         </div>
                       </div>
 
-                      <div className="shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setBreakdownDebt(debt)}
+                          className="h-7 px-2 text-[10px] font-semibold gap-1 text-muted-foreground hover:text-foreground"
+                          title="Xem chi tiết các hóa đơn cấu thành khoản nợ"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Chi tiết</span>
+                        </Button>
+
                         {pending ? (
                           <Badge
                             variant="outline"
@@ -184,6 +269,15 @@ export function GroupBalanceSummary({
         groupId={groupId}
         members={members}
         currentUserId={currentUserId}
+      />
+
+      {/* Render reusable DebtBreakdownDialog */}
+      <DebtBreakdownDialog
+        debt={breakdownDebt}
+        onClose={() => setBreakdownDebt(null)}
+        expenses={expenses}
+        settlements={settlements}
+        fundAllocations={fundAllocations}
       />
     </div>
   );
