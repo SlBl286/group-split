@@ -290,23 +290,6 @@ export function SettingsForm({ user }: { user: UserSettings }) {
             {/* Live VietQR Card & QR Code Preview */}
             {bankName && accountNumber && (
               <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white shadow-lg border border-slate-800 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5 text-emerald-400" />
-                    <div>
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                        Xem trước Mã VietQR & Thẻ nhận tiền
-                      </h4>
-                      <p className="text-[10px] text-slate-400">
-                        Mã QR và thông tin thụ hưởng thực tế sẽ hiển thị cho thành viên nhóm khi họ quét trả nợ cho bạn.
-                      </p>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/40 bg-emerald-500/10 font-bold shrink-0">
-                    ⚡ VietQR Chuyển Nhanh 24/7
-                  </Badge>
-                </div>
-
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                   {/* Thông tin thẻ */}
                   <div className="space-y-3 flex-1 w-full text-center sm:text-left">

@@ -161,22 +161,15 @@ export function NotificationBell() {
 
   function getNotificationIcon(type: string) {
     switch (type) {
+      case "EXPENSE_CREATED":
+        return <Receipt className="h-4 w-4 text-emerald-500 shrink-0" />;
       case "GROUP_INVITE":
       case "JOIN_REQUEST":
         return <UserPlus className="h-4 w-4 text-blue-500 shrink-0" />;
-      case "INVITE_ACCEPTED":
-      case "JOIN_APPROVED":
-      case "EXPENSE_APPROVED":
+      case "SETTLEMENT_CREATED":
       case "SETTLEMENT_CONFIRMED":
         return <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />;
-      case "INVITE_DECLINED":
-      case "JOIN_REJECTED":
-      case "EXPENSE_REJECTED":
-      case "SETTLEMENT_REJECTED":
-        return <XCircle className="h-4 w-4 text-rose-500 shrink-0" />;
-      case "EXPENSE_PENDING":
-        return <Receipt className="h-4 w-4 text-amber-500 shrink-0" />;
-      case "SETTLEMENT_PENDING":
+      case "FUND_ALLOCATION":
         return <ArrowRight className="h-4 w-4 text-purple-500 shrink-0" />;
       default:
         return <Bell className="h-4 w-4 text-primary shrink-0" />;
@@ -185,7 +178,7 @@ export function NotificationBell() {
 
   return (
     <Popover>
-      <PopoverTrigger className="relative inline-flex items-center justify-center h-9 w-9 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors focus-visible:outline-none" aria-label="Thông báo">
+      <PopoverTrigger className="relative inline-flex items-center justify-center h-9 w-9 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors focus-visible:outline-none cursor-pointer" aria-label="Thông báo">
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
           <span className="absolute top-1 right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm">
@@ -193,7 +186,7 @@ export function NotificationBell() {
           </span>
         )}
       </PopoverTrigger>
-      <PopoverContent className="w-80 sm:w-96 p-0" align="end">
+      <PopoverContent className="w-80 sm:w-96 max-w-[calc(100vw-2rem)] p-0 shadow-xl border rounded-xl" align="end">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
           <div className="flex items-center gap-2">
@@ -210,7 +203,7 @@ export function NotificationBell() {
               size="sm"
               onClick={markAllAsRead}
               disabled={loading}
-              className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1 px-2"
+              className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1 px-2 cursor-pointer"
             >
               <CheckCheck className="h-3.5 w-3.5" />
               Đã đọc tất cả
@@ -261,7 +254,7 @@ export function NotificationBell() {
                         <>
                           <Button
                             size="sm"
-                            className="h-7 text-xs px-3 font-semibold gap-1 bg-primary text-primary-foreground"
+                            className="h-7 text-xs px-3 font-semibold gap-1 bg-primary text-primary-foreground cursor-pointer"
                             disabled={isProcessing}
                             onClick={() => handleInviteResponse(n.entityId!, "ACCEPT", n.id)}
                           >
@@ -271,7 +264,7 @@ export function NotificationBell() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-7 text-xs px-3 font-semibold"
+                            className="h-7 text-xs px-3 font-semibold cursor-pointer"
                             disabled={isProcessing}
                             onClick={() => handleInviteResponse(n.entityId!, "DECLINE", n.id)}
                           >
@@ -296,7 +289,7 @@ export function NotificationBell() {
                         <>
                           <Button
                             size="sm"
-                            className="h-7 text-xs px-3 font-semibold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            className="h-7 text-xs px-3 font-semibold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
                             disabled={isProcessing}
                             onClick={() => handleJoinRequestResponse(n.entityId!, "APPROVE", n.id)}
                           >
@@ -306,7 +299,7 @@ export function NotificationBell() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-7 text-xs px-3 font-semibold text-rose-500 hover:text-rose-600"
+                            className="h-7 text-xs px-3 font-semibold text-rose-500 hover:text-rose-600 cursor-pointer"
                             disabled={isProcessing}
                             onClick={() => handleJoinRequestResponse(n.entityId!, "REJECT", n.id)}
                           >
