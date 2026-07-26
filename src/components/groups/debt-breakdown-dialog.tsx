@@ -102,16 +102,16 @@ export function DebtBreakdownDialog({
       new Date(s.createdAt).getTime() > lastSettlementTime
   );
 
-  // Selected user based on tab
   const isPayerTab = activeTab === "PAYER";
-  const targetUserId = isPayerTab ? fromUserId : toUserId;
-  const targetUserName = isPayerTab ? fromUserName : toUserName;
 
-  // 1. Hóa đơn mà người này (targetUserId) được chia tiền phải trả
-  const consumedSplits = activeExpenses
+  // --- TÍNH TOÁN THEO CẶP GIAO DỊCH CHÍNH XÁC GIỮA (fromUserId - Người trả) VÀ (toUserId - Người nhận) ---
+
+  // 1. Các khoản split mà fromUserId (Người trả) tiêu dùng từ các hóa đơn do toUserId (Người nhận) đứng ra trả
+  const payerConsumedFromReceiver = activeExpenses
+    .filter((exp) => exp.paidById === toUserId)
     .flatMap((exp) =>
       exp.splits
-        .filter((s) => s.userId === targetUserId && s.amount > 0)
+        .filter((s) => s.userId === fromUserId && s.amount > 0)
         .map((s) => ({
           expenseId: exp.id,
           title: exp.title,
@@ -124,48 +124,93 @@ export function DebtBreakdownDialog({
     )
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const totalConsumed = consumedSplits.reduce((sum, item) => sum + item.splitAmount, 0);
+  const totalPayerConsumedFromReceiver = payerConsumedFromReceiver.reduce(
+    (sum, item) => sum + item.splitAmount,
+    0
+  );
 
-  // 2. Hóa đơn mà người này (targetUserId) đứng ra tự trả tiền trước cho cả nhóm
-  const upfrontPaidExpenses = activeExpenses
-    .filter((exp) => exp.paidById === targetUserId)
+  // 2. Các khoản split mà toUserId (Người nhận) tiêu dùng từ các hóa đơn do fromUserId (Người trả) đứng ra trả
+  const receiverConsumedFromPayer = activeExpenses
+    .filter((exp) => exp.paidById === fromUserId)
+    .flatMap((exp) =>
+      exp.splits
+        .filter((s) => s.userId === toUserId && s.amount > 0)
+        .map((s) => ({
+          expenseId: exp.id,
+          title: exp.title,
+          date: exp.date,
+          category: exp.category,
+          totalExpenseAmount: exp.amount,
+          splitAmount: s.amount,
+          paidById: exp.paidById,
+        }))
+    )
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const totalUpfrontPaid = upfrontPaidExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-
-  // 3. Các khoản cấp tiền từ Quỹ nhóm (fundAllocations) liên quan tới targetUserId
-  const relevantFundAllocations = activeFundAllocations.filter(
-    (fa) => fa.fromUserId === targetUserId || fa.toUserId === targetUserId
+  const totalReceiverConsumedFromPayer = receiverConsumedFromPayer.reduce(
+    (sum, item) => sum + item.splitAmount,
+    0
   );
 
-  const totalFundReceived = relevantFundAllocations
-    .filter((fa) => fa.toUserId === targetUserId)
-    .reduce((sum, fa) => sum + fa.amount, 0);
-
-  const totalFundGiven = relevantFundAllocations
-    .filter((fa) => fa.fromUserId === targetUserId)
-    .reduce((sum, fa) => sum + fa.amount, 0);
-
-  const netFundAdjustment = totalFundReceived - totalFundGiven;
-
-  // 4. Các khoản thanh toán (settlements) đã xác nhận liên quan tới targetUserId
-  const confirmedSettlements = activeSettlements.filter(
-    (s) => s.isConfirmed && (s.fromUserId === targetUserId || s.toUserId === targetUserId)
+  // 3. Tiền Quỹ nhóm giao dịch giữa 2 bên
+  const pairFundAllocations = activeFundAllocations.filter(
+    (fa) =>
+      (fa.fromUserId === toUserId && fa.toUserId === fromUserId) ||
+      (fa.fromUserId === fromUserId && fa.toUserId === toUserId)
   );
 
-  const totalPaidSettlements = confirmedSettlements
-    .filter((s) => s.fromUserId === targetUserId)
+  const fundGivenReceiverToPayer = pairFundAllocations
+    .filter((fa) => fa.fromUserId === toUserId && fa.toUserId === fromUserId)
+    .reduce((sum, fa) => sum + fa.amount, 0);
+
+  const fundGivenPayerToReceiver = pairFundAllocations
+    .filter((fa) => fa.fromUserId === fromUserId && fa.toUserId === toUserId)
+    .reduce((sum, fa) => sum + fa.amount, 0);
+
+  const netPairFund = fundGivenReceiverToPayer - fundGivenPayerToReceiver;
+
+  // 4. Lịch sử chuyển trả trực tiếp đã xác nhận giữa 2 bên
+  const pairSettlementsList = activeSettlements.filter(
+    (s) =>
+      s.isConfirmed &&
+      ((s.fromUserId === fromUserId && s.toUserId === toUserId) ||
+        (s.fromUserId === toUserId && s.toUserId === fromUserId))
+  );
+
+  const settlementPaidPayerToReceiver = pairSettlementsList
+    .filter((s) => s.fromUserId === fromUserId && s.toUserId === toUserId)
     .reduce((sum, s) => sum + s.amount, 0);
 
-  const totalReceivedSettlements = confirmedSettlements
-    .filter((s) => s.toUserId === targetUserId)
+  const settlementPaidReceiverToPayer = pairSettlementsList
+    .filter((s) => s.fromUserId === toUserId && s.toUserId === fromUserId)
     .reduce((sum, s) => sum + s.amount, 0);
 
-  const netSettlementAdjustment = totalPaidSettlements - totalReceivedSettlements;
+  const netPairSettlement = settlementPaidPayerToReceiver - settlementPaidReceiverToPayer;
 
-  // Tính toán số dư ròng chuẩn tuyệt đối: B = (+ totalUpfrontPaid) - (totalConsumed) + (netFundAdjustment) + (netSettlementAdjustment)
-  const calculatedNetBalance = totalUpfrontPaid - totalConsumed + netFundAdjustment + netSettlementAdjustment;
-  const finalDisplayAmount = Math.abs(calculatedNetBalance) > 0 ? Math.abs(calculatedNetBalance) : amount;
+  // --- TÍNH TOÁN SỐ DƯ RÒNG TUYỆT ĐỐI KHỚP NGUYÊN BẢN CÁC MỤC 1 + 2 + 3 + 4 ---
+  
+  // SỐ DƯ RÒNG DÀNH CHO PAYER (fromUserId):
+  // payerNetBalance = (- Tiền tiêu dùng từ HĐ do Receiver trả) + (+ Tiền ứng trước cho Receiver tiêu dùng) + (+ Tiền Quỹ nhận được) + (+ Tiền đã chuyển trả)
+  const payerNetBalance =
+    -totalPayerConsumedFromReceiver +
+    totalReceiverConsumedFromPayer +
+    netPairFund +
+    netPairSettlement;
+
+  // SỐ DƯ RÒNG DÀNH CHO RECEIVER (toUserId):
+  // receiverNetBalance = (+ Tiền ứng trả hộ Payer) - (- Tiền tiêu dùng từ HĐ do Payer trả) - (- Tiền Quỹ đã cấp) - (- Tiền đã nhận thanh toán)
+  const receiverNetBalance = -payerNetBalance;
+
+  // Chọn số dư ròng theo Tab đang mở
+  const currentNetBalance = isPayerTab ? payerNetBalance : receiverNetBalance;
+  const currentDisplayAmount = Math.abs(currentNetBalance);
+
+  // Helper hiển thị dấu chuẩn (+ / -) không bao giờ bị thừa hoặc lặp dấu
+  const formatSignedAmount = (val: number, positiveSign: string = "+", negativeSign: string = "") => {
+    if (val === 0) return "0 ₫";
+    if (val > 0) return `${positiveSign}${formatVND(val)}`;
+    return `${negativeSign}${formatVND(val)}`;
+  };
 
   return (
     <Dialog open={!!debt} onOpenChange={(open) => !open && onClose()}>
@@ -181,11 +226,11 @@ export function DebtBreakdownDialog({
               {fromUserName} <span className="text-muted-foreground font-normal">➔</span> {toUserName}
             </span>
             <Badge variant="destructive" className="text-sm font-extrabold px-3 py-1 shrink-0">
-              {formatVND(finalDisplayAmount)}
+              {formatVND(currentDisplayAmount)}
             </Badge>
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground pt-1">
-            Chi tiết các khoản phát sinh dư nợ chưa thanh toán.
+            Chi tiết các khoản phát sinh dư nợ đối soát trực tiếp giữa {fromUserName} và {toUserName}.
           </DialogDescription>
 
           {/* Alert / Filter Status Bar */}
@@ -222,7 +267,7 @@ export function DebtBreakdownDialog({
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <User className="h-3.5 w-3.5" />
+              <User className="h-3.5 w-3.5 text-rose-500" />
               Chi tiết: {fromUserName} (Người trả)
             </button>
             <button
@@ -248,55 +293,114 @@ export function DebtBreakdownDialog({
               <div className="flex items-center justify-between text-xs font-bold text-primary mb-1">
                 <span className="flex items-center gap-1.5">
                   <Calculator className="h-4 w-4" />
-                  Tổng dư nợ ({targetUserName})
+                  {isPayerTab ? `Tổng dư nợ (${fromUserName})` : `Quyền lợi thu nợ (${toUserName})`}
                 </span>
-                {!showAllHistory && lastSettlement && (
+                {!showAllHistory && lastSettlement ? (
                   <Badge variant="outline" className="text-[10px] font-normal">Chưa thanh toán</Badge>
+                ) : (
+                  <Badge variant="secondary" className="text-[10px] font-normal">Tất cả lịch sử</Badge>
                 )}
               </div>
-              <div className="space-y-1.5 text-xs">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">1. Tiền cá nhân tiêu dùng:</span>
-                  <span className="font-semibold text-rose-500">-{formatVND(totalConsumed)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">2. Tiền đứng ra ứng trước:</span>
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">+{formatVND(totalUpfrontPaid)}</span>
-                </div>
-                {relevantFundAllocations.length > 0 && (
+
+              {isPayerTab ? (
+                /* VIEW FOR PAYER (fromUserName) */
+                <div className="space-y-1.5 text-xs">
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">3. Tiền được cấp / Phát quỹ:</span>
-                    <span className="font-semibold text-purple-600 dark:text-purple-400">
-                      {netFundAdjustment >= 0 ? "+" : ""}{formatVND(netFundAdjustment)}
+                    <span className="text-muted-foreground">1. Tiền cá nhân tiêu dùng (HĐ do {toUserName} trả):</span>
+                    <span className="font-semibold text-rose-500">
+                      {totalPayerConsumedFromReceiver > 0 ? `-${formatVND(totalPayerConsumedFromReceiver)}` : "0 ₫"}
                     </span>
                   </div>
-                )}
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">
-                    {relevantFundAllocations.length > 0 ? "4. Thanh toán / Nhận bù nợ:" : "3. Thanh toán / Nhận bù nợ:"}
-                  </span>
-                  <span className="font-semibold text-blue-500">
-                    {netSettlementAdjustment >= 0 ? "+" : ""}{formatVND(netSettlementAdjustment)}
-                  </span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">2. Tiền ứng trước cho {toUserName} tiêu dùng:</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                      {totalReceiverConsumedFromPayer > 0 ? `+${formatVND(totalReceiverConsumedFromPayer)}` : "0 ₫"}
+                    </span>
+                  </div>
+                  {pairFundAllocations.length > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">3. Tiền Quỹ nhận từ / Cấp cho {toUserName}:</span>
+                      <span className="font-semibold text-purple-600 dark:text-purple-400">
+                        {formatSignedAmount(netPairFund)}
+                      </span>
+                    </div>
+                  )}
+                  {pairSettlementsList.length > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">
+                        {pairFundAllocations.length > 0 ? "4. Đã chuyển trả cho " : "3. Đã chuyển trả cho "}{toUserName}:
+                      </span>
+                      <span className="font-semibold text-blue-500">
+                        {formatSignedAmount(netPairSettlement)}
+                      </span>
+                    </div>
+                  )}
+                  <Separator className="my-2" />
+                  <div className="flex justify-between items-center font-bold text-sm">
+                    <span>
+                      {payerNetBalance < 0
+                        ? `Khoản nợ chốt phải trả cho ${toUserName}:`
+                        : payerNetBalance > 0
+                        ? `Khoản sẽ nhận lại từ ${toUserName}:`
+                        : `Đã thanh toán sòng phẳng (Dư nợ = 0 ₫)`}
+                    </span>
+                    {payerNetBalance !== 0 && (
+                      <span className={payerNetBalance < 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}>
+                        {formatVND(currentDisplayAmount)}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <Separator className="my-2" />
-                <div className="flex justify-between items-center font-bold text-sm">
-                  <span>
-                    {calculatedNetBalance < 0
-                      ? "Khoản nợ chốt hiện tại:"
-                      : "Khoản sẽ nhận lại hiện tại:"}
-                  </span>
-                  <span
-                    className={
-                      calculatedNetBalance < 0
-                        ? "text-rose-600 dark:text-rose-400"
-                        : "text-emerald-600 dark:text-emerald-400"
-                    }
-                  >
-                    {formatVND(finalDisplayAmount)}
-                  </span>
+              ) : (
+                /* VIEW FOR RECEIVER (toUserName) */
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">1. Tiền đã ứng trả hộ {fromUserName}:</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                      {totalPayerConsumedFromReceiver > 0 ? `+${formatVND(totalPayerConsumedFromReceiver)}` : "0 ₫"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">2. Tiền tiêu dùng từ HĐ do {fromUserName} trả:</span>
+                    <span className="font-semibold text-rose-500">
+                      {totalReceiverConsumedFromPayer > 0 ? `-${formatVND(totalReceiverConsumedFromPayer)}` : "0 ₫"}
+                    </span>
+                  </div>
+                  {pairFundAllocations.length > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">3. Tiền Quỹ cấp cho / Nhận từ {fromUserName}:</span>
+                      <span className="font-semibold text-purple-600 dark:text-purple-400">
+                        {formatSignedAmount(-netPairFund)}
+                      </span>
+                    </div>
+                  )}
+                  {pairSettlementsList.length > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">
+                        {pairFundAllocations.length > 0 ? "4. Đã nhận thanh toán từ " : "3. Đã nhận thanh toán từ "}{fromUserName}:
+                      </span>
+                      <span className="font-semibold text-blue-500">
+                        {formatSignedAmount(-netPairSettlement)}
+                      </span>
+                    </div>
+                  )}
+                  <Separator className="my-2" />
+                  <div className="flex justify-between items-center font-bold text-sm">
+                    <span>
+                      {receiverNetBalance > 0
+                        ? `Khoản sẽ nhận lại từ ${fromUserName}:`
+                        : receiverNetBalance < 0
+                        ? `Khoản nợ chốt phải trả cho ${fromUserName}:`
+                        : `Đã thanh toán sòng phẳng (Dư nợ = 0 ₫)`}
+                    </span>
+                    {receiverNetBalance !== 0 && (
+                      <span className={receiverNetBalance > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
+                        {formatVND(currentDisplayAmount)}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
@@ -305,20 +409,22 @@ export function DebtBreakdownDialog({
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wide">
                 <Receipt className="h-4 w-4 text-rose-500" />
-                1. Hóa đơn tham gia chia tiền ({consumedSplits.length})
+                {isPayerTab
+                  ? `1. Hóa đơn ${fromUserName} tham gia chia tiền do ${toUserName} trả (${payerConsumedFromReceiver.length})`
+                  : `1. Hóa đơn ${toUserName} ứng trả hộ cho ${fromUserName} (${payerConsumedFromReceiver.length})`}
               </h4>
               <span className="text-xs font-semibold text-rose-500">
-                Tổn thất: -{formatVND(totalConsumed)}
+                {isPayerTab ? `Tổn thất: -${formatVND(totalPayerConsumedFromReceiver)}` : `Đã ứng hộ: +${formatVND(totalPayerConsumedFromReceiver)}`}
               </span>
             </div>
 
-            {consumedSplits.length === 0 ? (
+            {payerConsumedFromReceiver.length === 0 ? (
               <p className="text-xs text-muted-foreground italic bg-muted/40 p-3 rounded-lg text-center">
-                Không có hóa đơn chia tiền mới từ lần thanh toán gần nhất.
+                Không có hóa đơn chia tiền nào.
               </p>
             ) : (
               <div className="space-y-2">
-                {consumedSplits.map((item, idx) => (
+                {payerConsumedFromReceiver.map((item, idx) => (
                   <div
                     key={`${item.expenseId}-${idx}`}
                     className="flex items-center justify-between p-2.5 rounded-lg border bg-card text-xs hover:bg-accent/40 transition-colors"
@@ -326,12 +432,12 @@ export function DebtBreakdownDialog({
                     <div className="min-w-0 pr-2">
                       <p className="font-semibold text-foreground truncate">{item.title}</p>
                       <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {formatDate(new Date(item.date))} • Tổng HĐ: {formatVND(item.totalExpenseAmount)}
+                        {formatDate(new Date(item.date))} • Tổng HĐ: {formatVND(item.totalExpenseAmount)} (Do {toUserName} trả)
                       </p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="font-bold text-rose-500">-{formatVND(item.splitAmount)}</p>
-                      <span className="text-[10px] text-muted-foreground">Phần được chia</span>
+                      <span className="text-[10px] text-muted-foreground">Phần {fromUserName} nợ</span>
                     </div>
                   </div>
                 ))}
@@ -344,33 +450,35 @@ export function DebtBreakdownDialog({
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wide">
                 <CreditCard className="h-4 w-4 text-emerald-500" />
-                2. Hóa đơn tự ứng tiền túi trả ({upfrontPaidExpenses.length})
+                {isPayerTab
+                  ? `2. Hóa đơn ${fromUserName} tự ứng trả cho ${toUserName} (${receiverConsumedFromPayer.length})`
+                  : `2. Hóa đơn ${toUserName} tham gia chia tiền do ${fromUserName} trả (${receiverConsumedFromPayer.length})`}
               </h4>
               <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                Đã chi: +{formatVND(totalUpfrontPaid)}
+                {isPayerTab ? `Đã chi: +${formatVND(totalReceiverConsumedFromPayer)}` : `Tổn thất: -${formatVND(totalReceiverConsumedFromPayer)}`}
               </span>
             </div>
 
-            {upfrontPaidExpenses.length === 0 ? (
+            {receiverConsumedFromPayer.length === 0 ? (
               <p className="text-xs text-muted-foreground italic bg-muted/40 p-3 rounded-lg text-center">
-                Không có hóa đơn đứng ra trả tiền từ lần thanh toán gần nhất.
+                Không có hóa đơn đứng ra trả tiền nào.
               </p>
             ) : (
               <div className="space-y-2">
-                {upfrontPaidExpenses.map((exp) => (
+                {receiverConsumedFromPayer.map((exp, idx) => (
                   <div
-                    key={exp.id}
+                    key={`${exp.expenseId}-${idx}`}
                     className="flex items-center justify-between p-2.5 rounded-lg border bg-card text-xs hover:bg-accent/40 transition-colors"
                   >
                     <div className="min-w-0 pr-2">
                       <p className="font-semibold text-foreground truncate">{exp.title}</p>
                       <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {formatDate(new Date(exp.date))}
+                        {formatDate(new Date(exp.date))} • Do {fromUserName} trả
                       </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="font-bold text-emerald-600 dark:text-emerald-400">+{formatVND(exp.amount)}</p>
-                      <span className="text-[10px] text-muted-foreground">Đã ứng trả</span>
+                      <p className="font-bold text-emerald-600 dark:text-emerald-400">+{formatVND(exp.splitAmount)}</p>
+                      <span className="text-[10px] text-muted-foreground">Phần {toUserName} nợ lại</span>
                     </div>
                   </div>
                 ))}
@@ -379,20 +487,20 @@ export function DebtBreakdownDialog({
           </div>
 
           {/* Section 3: Tiền cấp từ Quỹ nhóm */}
-          {relevantFundAllocations.length > 0 && (
+          {pairFundAllocations.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wide">
                   <Coins className="h-4 w-4 text-purple-500" />
-                  3. Tiền cấp từ Quỹ nhóm ({relevantFundAllocations.length})
+                  3. Tiền cấp từ Quỹ nhóm trực tiếp ({pairFundAllocations.length})
                 </h4>
                 <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">
-                  {netFundAdjustment >= 0 ? "+" : ""}{formatVND(netFundAdjustment)}
+                  {formatSignedAmount(netPairFund)}
                 </span>
               </div>
               <div className="space-y-2">
-                {relevantFundAllocations.map((fa) => {
-                  const isRecipient = fa.toUserId === targetUserId;
+                {pairFundAllocations.map((fa) => {
+                  const isRecipient = fa.toUserId === (isPayerTab ? fromUserId : toUserId);
                   return (
                     <div
                       key={fa.id}
@@ -427,17 +535,17 @@ export function DebtBreakdownDialog({
           )}
 
           {/* Section 4: Lịch sử thanh toán bù nợ */}
-          {confirmedSettlements.length > 0 && (
+          {pairSettlementsList.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wide">
                   <ArrowRightLeft className="h-4 w-4 text-blue-500" />
-                  {relevantFundAllocations.length > 0 ? "4" : "3"}. Lịch sử thanh toán bù nợ đã xác nhận ({confirmedSettlements.length})
+                  {pairFundAllocations.length > 0 ? "4" : "3"}. Lịch sử thanh toán bù nợ trực tiếp ({pairSettlementsList.length})
                 </h4>
               </div>
               <div className="space-y-2">
-                {confirmedSettlements.map((s) => {
-                  const isPayer = s.fromUserId === targetUserId;
+                {pairSettlementsList.map((s) => {
+                  const isPayer = s.fromUserId === (isPayerTab ? fromUserId : toUserId);
                   return (
                     <div
                       key={s.id}
