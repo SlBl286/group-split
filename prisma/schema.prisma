@@ -42,8 +42,9 @@ model Group {
   description String?
   avatar      String?
   inviteCode  String   @unique @default(cuid())
-  currency    String   @default("VND")
-  createdAt   DateTime @default(now())
+  telegramChatId String?
+  currency       String   @default("VND")
+  createdAt      DateTime @default(now())
 
   owner   User   @relation("GroupOwner", fields: [ownerId], references: [id])
   ownerId String

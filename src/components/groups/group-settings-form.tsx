@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils/format";
 import { toast } from "sonner";
-import { Loader2, Settings, Camera } from "lucide-react";
+import { Loader2, Settings, Camera, SendHorizontal, HelpCircle } from "lucide-react";
 import { CategorySettings } from "./category-settings";
 
 interface GroupSettingsFormProps {
@@ -18,14 +18,17 @@ interface GroupSettingsFormProps {
     name: string;
     description: string | null;
     avatar: string | null;
+    telegramChatId: string | null;
   };
 }
 
 export function GroupSettingsForm({ group }: GroupSettingsFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [testingTelegram, setTestingTelegram] = useState(false);
   const [name, setName] = useState(group.name);
   const [description, setDescription] = useState(group.description || "");
+  const [telegramChatId, setTelegramChatId] = useState(group.telegramChatId || "");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(group.avatar);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
@@ -43,6 +46,34 @@ export function GroupSettingsForm({ group }: GroupSettingsFormProps) {
     }
   }
 
+  async function handleTestTelegram() {
+    if (!telegramChatId.trim()) {
+      toast.error("Vui lòng nhập Telegram Chat ID trước khi bấm gửi thử");
+      return;
+    }
+
+    setTestingTelegram(true);
+    try {
+      const res = await fetch(`/api/groups/${group.id}/test-telegram`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telegramChatId: telegramChatId.trim() }),
+      });
+
+      const data = await res.json();
+      setTestingTelegram(false);
+
+      if (res.ok) {
+        toast.success(data.message || "Đã gửi tin nhắn thử nghiệm thành công!");
+      } else {
+        toast.error(data.error || "Gửi tin nhắn thử nghiệm thất bại");
+      }
+    } catch (err) {
+      setTestingTelegram(false);
+      toast.error("Lỗi kết nối máy chủ");
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
@@ -55,6 +86,7 @@ export function GroupSettingsForm({ group }: GroupSettingsFormProps) {
     const formData = new FormData();
     formData.append("name", name.trim());
     formData.append("description", description.trim());
+    formData.append("telegramChatId", telegramChatId.trim());
     if (avatarFile) {
       formData.append("avatar", avatarFile);
     }
@@ -83,6 +115,7 @@ export function GroupSettingsForm({ group }: GroupSettingsFormProps) {
   const hasChanges =
     name !== group.name ||
     description !== (group.description || "") ||
+    telegramChatId !== (group.telegramChatId || "") ||
     avatarFile !== null;
 
   return (
@@ -94,7 +127,7 @@ export function GroupSettingsForm({ group }: GroupSettingsFormProps) {
             Cài đặt thông tin nhóm
           </CardTitle>
           <CardDescription className="text-xs">
-            Thay đổi ảnh đại diện, tên nhóm và mô tả chi tiết của nhóm.
+            Thay đổi ảnh đại diện, tên nhóm, mô tả và cấu hình kết nối Telegram Bot.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -147,6 +180,42 @@ export function GroupSettingsForm({ group }: GroupSettingsFormProps) {
                 onChange={(e) => setDescription(e.target.value)}
                 className="h-11"
               />
+            </div>
+
+            {/* Telegram Notification Setting */}
+            <div className="space-y-2 pt-2 border-t">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="group-telegram" className="text-sm font-semibold flex items-center gap-1.5">
+                  ✈️ Telegram Chat ID
+                </Label>
+                <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <HelpCircle className="h-3.5 w-3.5" />
+                  <span>Cách lấy: Thêm Bot vào nhóm Telegram ➔ Gửi tin ➔ Lấy ID (ví dụ: -100xxx)</span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  id="group-telegram"
+                  placeholder="Nhập Telegram Chat ID (VD: -100123456789)..."
+                  value={telegramChatId}
+                  onChange={(e) => setTelegramChatId(e.target.value)}
+                  className="h-11 font-mono text-xs"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleTestTelegram}
+                  disabled={testingTelegram || !telegramChatId.trim()}
+                  className="h-11 px-3 gap-1 font-semibold text-xs shrink-0 cursor-pointer"
+                >
+                  {testingTelegram ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <SendHorizontal className="h-4 w-4 text-sky-500" />
+                  )}
+                  Gửi thử
+                </Button>
+              </div>
             </div>
 
             <Button

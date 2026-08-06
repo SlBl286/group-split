@@ -155,7 +155,7 @@ export function GroupBalanceSummary({
                             className="gap-1 font-bold text-[10px] bg-amber-500/10 text-amber-600 border border-amber-500/20 h-7 opacity-100"
                           >
                             <Clock className="h-3 w-3 animate-pulse" />
-                            Chờ duyệt
+                            Đã chuyển (Chờ duyệt)
                           </Badge>
                         ) : (
                           <Button

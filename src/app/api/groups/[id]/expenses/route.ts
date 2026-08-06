@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 
 import { eventEmitter } from "@/lib/events";
 
+import { sendGroupTelegramNotification } from "@/lib/telegram";
+import { formatVND } from "@/lib/utils/format";
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -14,7 +17,13 @@ export async function POST(
   const { id: groupId } = await params;
   const userId = session.user.id!;
 
-  // Check membership
+  // Check group & membership
+  const group = await prisma.group.findUnique({
+    where: { id: groupId },
+    select: { ownerId: true, fundManagerId: true },
+  });
+  if (!group) return NextResponse.json({ error: "Nhóm không tồn tại" }, { status: 404 });
+
   const membership = await prisma.groupMember.findUnique({
     where: { userId_groupId: { userId, groupId } },
   });
@@ -27,6 +36,13 @@ export async function POST(
     return NextResponse.json({ error: "Thiếu thông tin" }, { status: 400 });
   }
 
+  // Tự động duyệt hoá đơn nếu do chính trưởng nhóm hoặc quản lý quỹ tạo
+  const isAutoApproved =
+    membership.role === "OWNER" ||
+    group.ownerId === userId ||
+    group.fundManagerId === userId ||
+    (group.fundManagerId === null && group.ownerId === userId);
+
   try {
     const expense = await prisma.expense.create({
       data: {
@@ -38,7 +54,7 @@ export async function POST(
         date: date ? new Date(date) : new Date(),
         groupId,
         createdById: userId,
-        status: membership.role === "OWNER" ? "APPROVED" : "PENDING",
+        status: isAutoApproved ? "APPROVED" : "PENDING",
         category: category || "Khác",
         categoryId: categoryId || null,
         splits: {
@@ -48,11 +64,22 @@ export async function POST(
           })),
         },
       },
-      include: { splits: true },
+      include: { splits: true, paidBy: { select: { displayName: true } } },
     });
 
     // Phát sóng tin nhắn cập nhật cho tất cả client
     eventEmitter.emit(`group:${groupId}`, { type: "REFRESH" });
+
+    // Gửi thông báo qua Telegram
+    const statusText = isAutoApproved ? "🟢 Đã tự động duyệt" : "⏳ Chờ Trưởng nhóm duyệt";
+    const msg = `🧾 <b>[Hóa đơn mới]</b>
+<b>${title}</b>
+💰 Số tiền: <b>${formatVND(amount)}</b>
+👤 Người chi: <b>${expense.paidBy.displayName}</b>
+🏷️ Danh mục: ${category || "Khác"}
+📌 Trạng thái: ${statusText}`;
+
+    sendGroupTelegramNotification(groupId, msg);
 
     return NextResponse.json(expense, { status: 201 });
   } catch (error: any) {

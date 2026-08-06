@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { sendGroupTelegramNotification } from "@/lib/telegram";
 
 export async function POST(
   req: NextRequest,
@@ -23,7 +24,14 @@ export async function POST(
 
     const member = await prisma.groupMember.create({
       data: { userId, groupId, role: "MEMBER" },
+      include: { user: { select: { displayName: true } } },
     });
+
+    // Gửi thông báo Telegram
+    const msg = `👋 <b>[Thành viên mới]</b>
+<b>${member.user.displayName}</b> vừa gia nhập nhóm! 🎉`;
+
+    sendGroupTelegramNotification(groupId, msg);
 
     return NextResponse.json(member, { status: 201 });
   } catch (error: any) {

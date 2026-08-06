@@ -29,6 +29,7 @@ export async function PATCH(
     const formData = await req.formData();
     const name = formData.get("name") as string;
     const description = formData.get("description") as string | null;
+    const telegramChatId = formData.get("telegramChatId") as string | null;
     const avatarFile = formData.get("avatar") as File | null;
 
     if (!name || name.trim() === "") {
@@ -57,6 +58,7 @@ export async function PATCH(
       data: {
         name: name.trim(),
         description: description ? description.trim() : null,
+        telegramChatId: telegramChatId ? telegramChatId.trim() : null,
         ...(avatarUrl !== undefined ? { avatar: avatarUrl } : {}),
       },
     });

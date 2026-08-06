@@ -3,6 +3,9 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
 
+import { sendGroupTelegramNotification } from "@/lib/telegram";
+import { formatVND } from "@/lib/utils/format";
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -30,6 +33,16 @@ export async function PATCH(
 
   // Phát sóng tin nhắn cập nhật cho tất cả client
   eventEmitter.emit(`group:${expense.groupId}`, { type: "REFRESH" });
+
+  // Gửi thông báo Telegram
+  const isApproved = status === "APPROVED";
+  const icon = isApproved ? "✅" : "❌";
+  const statusLabel = isApproved ? "Đã phê duyệt" : "Đã từ chối";
+  const msg = `${icon} <b>[Xử lý hóa đơn]</b>
+Hóa đơn: <b>${expense.title}</b> (<b>${formatVND(expense.amount)}</b>)
+Trạng thái: <b>${statusLabel}</b> bởi Trưởng nhóm`;
+
+  sendGroupTelegramNotification(expense.groupId, msg);
 
   return NextResponse.json(updated);
 }

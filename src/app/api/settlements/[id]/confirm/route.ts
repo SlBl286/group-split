@@ -3,6 +3,9 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
 
+import { sendGroupTelegramNotification } from "@/lib/telegram";
+import { formatVND } from "@/lib/utils/format";
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -29,10 +32,21 @@ export async function PATCH(
         ? settlement.note.replace(/^\[QR_PENDING\]\s*/, "")
         : settlement.note,
     },
+    include: {
+      fromUser: { select: { displayName: true } },
+      toUser: { select: { displayName: true } },
+    },
   });
 
   // Phát sóng tin nhắn cập nhật cho tất cả client
   eventEmitter.emit(`group:${settlement.groupId}`, { type: "REFRESH" });
+
+  // Gửi thông báo Telegram
+  const msg = `🎉 <b>[Xác nhận nhận tiền]</b>
+<b>${updated.toUser.displayName}</b> đã xác nhận nhận <b>${formatVND(updated.amount)}</b> từ <b>${updated.fromUser.displayName}</b>.
+📌 Giao dịch hoàn tất!`;
+
+  sendGroupTelegramNotification(updated.groupId, msg);
 
   return NextResponse.json(updated);
 }

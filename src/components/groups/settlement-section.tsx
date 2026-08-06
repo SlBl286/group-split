@@ -209,7 +209,7 @@ export function SettlementSection({
     setLoadingId(null);
 
     if (res.ok) {
-      toast.success("Đã xác nhận thanh toán!");
+      toast.success("Đã xác nhận nhận tiền!");
       router.refresh();
     } else {
       toast.error("Có lỗi xảy ra");
@@ -406,7 +406,7 @@ export function SettlementSection({
                         className="gap-1 font-bold text-xs bg-amber-500/10 text-amber-600 border border-amber-500/20 opacity-100 h-7"
                       >
                         <Clock className="h-3.5 w-3.5 animate-pulse" />
-                        Chờ xác nhận
+                        Đã chuyển (Chờ duyệt)
                       </Badge>
                     )}
                   </div>
@@ -492,8 +492,8 @@ export function SettlementSection({
                           </div>
                         )}
                         {s.isConfirmed && (
-                          <Badge variant="secondary" className="text-xs shrink-0">
-                            Đã xác nhận
+                          <Badge variant="secondary" className="text-xs shrink-0 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                            Đã nhận tiền
                           </Badge>
                         )}
                       </div>

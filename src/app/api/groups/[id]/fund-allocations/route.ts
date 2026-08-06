@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
+import { sendGroupTelegramNotification } from "@/lib/telegram";
+import { formatVND } from "@/lib/utils/format";
 
 export async function POST(
   req: NextRequest,
@@ -70,6 +72,21 @@ export async function POST(
 
     // Phát sự kiện cập nhật realtime qua SSE
     eventEmitter.emit(`group:${groupId}`, { type: "REFRESH" });
+
+    // Gửi thông báo Telegram
+    const managerUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { displayName: true },
+    });
+    const singleAmt = parseFloat(amount);
+    const totalAmount = singleAmt * recipientIds.length;
+    const msg = `🏦 <b>[Thông báo cấp quỹ nhóm]</b>
+Người quản lý: <b>${managerUser?.displayName || "Quản lý quỹ"}</b>
+💰 Mức cấp: <b>${formatVND(singleAmt)}</b> / người
+👥 Số người nhận: <b>${recipientIds.length} thành viên</b> (Tổng: <b>${formatVND(totalAmount)}</b>)
+📝 Ghi chú: ${note || "Cấp quỹ hoạt động nhóm"}`;
+
+    sendGroupTelegramNotification(groupId, msg);
 
     return NextResponse.json({ success: true, count: allocationsData.length }, { status: 201 });
   } catch (err: any) {

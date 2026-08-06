@@ -95,7 +95,7 @@ export function PayDialog({
           fromUserId: debt.fromUserId,
           toUserId: debt.toUserId,
           amount: debt.amount,
-          note: `[QR_PENDING] Chuyển khoản QR đến ${recipientUser.displayName}`,
+          note: `[QR_PENDING] Đã chuyển tiền cho ${recipientUser.displayName}`,
         }),
       });
 
@@ -164,7 +164,7 @@ export function PayDialog({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          note: `Chuyển khoản QR đến ${recipientUser?.displayName}`,
+          note: `Đã chuyển tiền cho ${recipientUser?.displayName}`,
         }),
       });
 
@@ -174,7 +174,7 @@ export function PayDialog({
         keepSettlement.current = true;
         setActivePayment(null);
         onClose();
-        toast.success("Đã thông báo gửi tiền thành công! Đang chờ người nhận xác nhận.");
+        toast.success("Đã chuyển tiền thành công! Đang chờ người nhận xác nhận.");
         router.refresh();
       } else {
         const data = await res.json();
@@ -223,7 +223,7 @@ export function PayDialog({
             keepSettlement.current = true;
             setActivePayment(null);
             onClose();
-            toast.success("Thanh toán thành công! Giao dịch của bạn đã được xác nhận tự động. 🎉");
+            toast.success("Đã chuyển và nhận tiền thành công! Giao dịch của bạn đã được xác nhận tự động. 🎉");
             router.refresh();
             return;
           }
