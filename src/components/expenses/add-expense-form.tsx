@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { formatVND, getInitials } from "@/lib/utils/format";
 import { Loader2, Equal, Sliders, Check, ChevronDown } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CategorySelectDropdown } from "@/components/expenses/category-select-dropdown";
 
 interface Category {
   id: string;
@@ -345,48 +345,18 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
             />
           </div>
 
-          {/* Category Dropdown */}
+          {/* Custom Category Dropdown */}
           <div className="space-y-2">
             <Label>Danh mục chi tiêu *</Label>
-            <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
-              <PopoverTrigger className="w-full h-11 justify-between text-left font-normal border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-lg px-3 flex items-center cursor-pointer select-none">
-                <span className="flex items-center gap-2 text-sm">
-                  <span className="text-lg shrink-0">
-                    {categories.find((c) => c.id === selectedCategoryId)?.icon || "📦"}
-                  </span>
-                  <span className="font-medium text-foreground truncate">
-                    {categories.find((c) => c.id === selectedCategoryId)?.name || "Chọn danh mục..."}
-                  </span>
-                </span>
-                <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
-              </PopoverTrigger>
-              <PopoverContent className="w-[300px] sm:w-[350px] p-1.5 z-50 bg-popover border border-border shadow-md rounded-lg max-h-[300px] overflow-y-auto" align="start">
-                {categories.length === 0 ? (
-                  <p className="text-center text-xs text-muted-foreground py-4">Đang tải danh mục...</p>
-                ) : (
-                  <div className="space-y-0.5">
-                    {flattenTree(buildCategoryTree(categories)).map(({ category: cat, depth }) => (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedCategoryId(cat.id);
-                          setCategory(cat.name); // Fallback name
-                          setCategoryOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-bold rounded-lg hover:bg-muted text-left transition-colors cursor-pointer ${
-                          selectedCategoryId === cat.id ? "bg-primary/10 text-primary" : "text-foreground"
-                        }`}
-                        style={{ paddingLeft: `${depth * 16 + 12}px` }}
-                      >
-                        <span className="text-base shrink-0">{cat.icon}</span>
-                        <span className="truncate">{cat.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </PopoverContent>
-            </Popover>
+            <CategorySelectDropdown
+              categories={categories}
+              selectedCategoryId={selectedCategoryId}
+              onSelectCategory={(cat) => {
+                setSelectedCategoryId(cat.id);
+                setCategory(cat.name);
+              }}
+              loading={categories.length === 0}
+            />
           </div>
 
           {/* Amount & Date Grid */}

@@ -20,8 +20,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { formatVND, formatDate, getInitials } from "@/lib/utils/format";
-import { ArrowRight, CheckCircle2, Clock, Loader2, QrCode, Copy, Check, Banknote, HelpCircle, Calendar, ArrowLeft, ChevronDown, Coins } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock, Loader2, QrCode, Copy, Check, Banknote, HelpCircle, Calendar, ArrowLeft, ChevronDown, Coins, FileText } from "lucide-react";
 import type { DebtEntry } from "@/lib/debt-calculator";
+import { DebtBreakdownDialog } from "./debt-breakdown-dialog";
 
 interface Settlement {
   id: string;
@@ -105,6 +106,7 @@ export function SettlementSection({
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedMemberId, setSelectedMemberId] = useState<string>("all");
   const [allocPage, setAllocPage] = useState(1);
+  const [breakdownDebt, setBreakdownDebt] = useState<DebtEntry | null>(null);
 
   const visibleSettlements = settlements.filter(
     (s) => !(s.note?.startsWith("[QR_PENDING]") && !s.isConfirmed)
@@ -394,6 +396,16 @@ export function SettlementSection({
                     </div>
                   </div>
                   <div className="flex items-center gap-2 sm:shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setBreakdownDebt(debt)}
+                      className="h-7 px-2 text-[11px] font-semibold gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
+                      title="Xem chi tiết các hóa đơn cấu thành khoản nợ"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      <span>Chi tiết</span>
+                    </Button>
                     <Badge
                       variant="outline"
                       className="text-sm px-3 py-1"
@@ -632,6 +644,14 @@ export function SettlementSection({
           </CardContent>
         </Card>
       )}
+
+      <DebtBreakdownDialog
+        debt={breakdownDebt}
+        onClose={() => setBreakdownDebt(null)}
+        expenses={expenses}
+        settlements={settlements}
+        fundAllocations={fundAllocations}
+      />
     </div>
   );
 }

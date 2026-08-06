@@ -17,10 +17,10 @@ export async function POST(
     const group = await prisma.group.findUnique({ where: { id: groupId } });
     if (!group) return NextResponse.json({ error: "Nhóm không tồn tại" }, { status: 404 });
 
-    const existing = await prisma.groupMember.findUnique({
+    const existingMember = await prisma.groupMember.findUnique({
       where: { userId_groupId: { userId, groupId } },
     });
-    if (existing) return NextResponse.json({ error: "Đã là thành viên" }, { status: 409 });
+    if (existingMember && !existingMember.isLeft) return NextResponse.json({ error: "Bạn đã là thành viên của nhóm này" }, { status: 409 });
 
     const member = await prisma.groupMember.create({
       data: { userId, groupId, role: "MEMBER" },
@@ -42,4 +42,3 @@ export async function POST(
     );
   }
 }
-

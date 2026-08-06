@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
+import { createNotification } from "@/lib/notifications";
+import { formatVND } from "@/lib/utils/format";
 
 import { sendGroupTelegramNotification } from "@/lib/telegram";
 import { formatVND } from "@/lib/utils/format";
@@ -27,7 +29,6 @@ export async function PATCH(
     where: { id },
     data: {
       isConfirmed: true,
-      // Xóa tiền tố [QR_PENDING] nếu còn
       note: settlement.note?.startsWith("[QR_PENDING]")
         ? settlement.note.replace(/^\[QR_PENDING\]\s*/, "")
         : settlement.note,
@@ -36,6 +37,16 @@ export async function PATCH(
       fromUser: { select: { displayName: true } },
       toUser: { select: { displayName: true } },
     },
+  });
+
+  // Send Notification to payer (fromUserId)
+  await createNotification({
+    userId: settlement.fromUserId,
+    title: `Khoản thanh toán nợ đã được xác nhận`,
+    content: `${session.user.name || "Người nhận"} đã xác nhận đã nhận khoản tiền ${formatVND(settlement.amount)} từ bạn.`,
+    type: "SETTLEMENT_CONFIRMED",
+    link: `/groups/${settlement.groupId}`,
+    entityId: settlement.id,
   });
 
   // Phát sóng tin nhắn cập nhật cho tất cả client

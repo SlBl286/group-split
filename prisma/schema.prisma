@@ -34,6 +34,10 @@ model User {
   managedGroups      Group[]        @relation("GroupFundManager")
   fundAllocationsSent FundAllocation[] @relation("FundAllocationFrom")
   fundAllocationsReceived FundAllocation[] @relation("FundAllocationTo")
+  sentInvitations         GroupInvitation[] @relation("GroupInvitationInviter")
+  receivedInvitations     GroupInvitation[] @relation("GroupInvitationInvited")
+  joinRequests            GroupJoinRequest[]
+  notifications           Notification[]    @relation("NotificationRecipient")
 }
 
 model Group {
@@ -57,12 +61,16 @@ model Group {
   settlements     Settlement[]
   fundAllocations FundAllocation[]
   categories      Category[]
+  invitations     GroupInvitation[]
+  joinRequests    GroupJoinRequest[]
 }
 
 model GroupMember {
   id       String     @id @default(cuid())
   role     MemberRole @default(MEMBER)
   joinedAt DateTime   @default(now())
+  isLeft   Boolean    @default(false)
+  leftAt   DateTime?
 
   user    User   @relation(fields: [userId], references: [id])
   userId  String
@@ -190,4 +198,73 @@ model Category {
   expenses  Expense[]
   createdAt DateTime   @default(now())
 }
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum JoinRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationType {
+  GROUP_INVITE
+  JOIN_REQUEST
+  INVITE_ACCEPTED
+  INVITE_DECLINED
+  JOIN_APPROVED
+  JOIN_REJECTED
+  MEMBER_LEFT
+  EXPENSE_PENDING
+  EXPENSE_APPROVED
+  EXPENSE_REJECTED
+  SETTLEMENT_PENDING
+  SETTLEMENT_CONFIRMED
+  SETTLEMENT_REJECTED
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+}
+
+model GroupInvitation {
+  id            String           @id @default(cuid())
+  groupId       String
+  group         Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  inviterId     String
+  inviter       User             @relation("GroupInvitationInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitedUserId String
+  invitedUser   User             @relation("GroupInvitationInvited", fields: [invitedUserId], references: [id], onDelete: Cascade)
+  status        InvitationStatus @default(PENDING)
+  createdAt     DateTime         @default(now())
+}
+
+model GroupJoinRequest {
+  id        String            @id @default(cuid())
+  groupId   String
+  group     Group             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    JoinRequestStatus @default(PENDING)
+  createdAt DateTime          @default(now())
+}
+
+model Notification {
+  id        String             @id @default(cuid())
+  userId    String
+  user      User               @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  content   String
+  type      NotificationType
+  status    NotificationStatus @default(UNREAD)
+  link      String?
+  entityId  String?
+  createdAt DateTime           @default(now())
+}
+
 

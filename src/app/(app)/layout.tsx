@@ -6,6 +6,8 @@ import { UserMenu } from "@/components/user-menu";
 import { BrandLogo } from "@/components/brand-logo";
 import { prisma } from "@/lib/prisma";
 
+import { NotificationBell } from "@/components/notifications/notification-bell";
+
 export default async function AppLayout({
   children,
 }: {
@@ -31,6 +33,7 @@ export default async function AppLayout({
           </div>
           <div className="hidden md:block" />
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <ThemeToggle />
             <UserMenu
               user={{
@@ -43,7 +46,7 @@ export default async function AppLayout({
         </header>
 
         {/* Main content */}
-        <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6">{children}</main>
+        <main className="flex-1 p-4 md:p-6 pb-36 md:pb-24">{children}</main>
       </div>
 
       {/* Mobile bottom nav */}

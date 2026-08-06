@@ -23,6 +23,7 @@ import {
   Clock,
   XCircle,
   Settings,
+  LogOut,
 } from "lucide-react";
 import { InviteSection } from "@/components/groups/invite-section";
 import { AddMemberForm } from "@/components/groups/add-member-form";
@@ -35,6 +36,7 @@ import { FundManagerSettings } from "@/components/groups/fund-manager-settings";
 import { FundAllocationTrigger } from "@/components/groups/fund-allocation-trigger";
 import { MemberQRAction } from "@/components/groups/member-qr-action";
 import { GroupSettingsForm } from "@/components/groups/group-settings-form";
+import { LeaveGroupCard } from "@/components/groups/leave-group-card";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -81,8 +83,8 @@ export default async function GroupDetailPage({
 
   if (!group) notFound();
 
-  const isMember = group.members.some((m) => m.userId === userId);
-  if (!isMember) redirect("/groups");
+  const activeMember = group.members.find((m) => m.userId === userId && !m.isLeft);
+  if (!activeMember) redirect("/groups");
 
   const isOwner = group.ownerId === userId;
   const isFundManager =
@@ -103,26 +105,7 @@ export default async function GroupDetailPage({
 
   const inviteUrl = generateInviteUrl(group.inviteCode);
 
-  const statusIcon = {
-    APPROVED: <CheckCircle2 className="h-4 w-4 text-emerald-500" />,
-    PENDING: <Clock className="h-4 w-4 text-amber-500" />,
-    REJECTED: <XCircle className="h-4 w-4 text-rose-500" />,
-  };
-
-  const statusLabel = {
-    APPROVED: "Đã duyệt",
-    PENDING: "Chờ duyệt",
-    REJECTED: "Từ chối",
-  };
-
-  const categoryEmojis: Record<string, string> = {
-    "Ăn uống": "🍽️",
-    "Di chuyển": "🚗",
-    "Mua sắm": "🛒",
-    "Giải trí": "🎉",
-    "Sinh hoạt": "🏠",
-    "Khác": "📦",
-  };
+  const activeMembersCount = group.members.filter((m) => !m.isLeft).length;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -157,7 +140,7 @@ export default async function GroupDetailPage({
           <FundAllocationTrigger
             groupId={id}
             isFundManager={isFundManager}
-            members={group.members.map((m) => ({
+            members={group.members.filter((m) => !m.isLeft).map((m) => ({
               userId: m.userId,
               user: {
                 id: m.user.id,
@@ -180,6 +163,7 @@ export default async function GroupDetailPage({
         <GroupBalanceSummary
           myBalance={myBalance}
           myDebts={debts.filter((d) => d.fromUserId === userId)}
+          myClaims={debts.filter((d) => d.toUserId === userId)}
           members={group.members.map((m) => ({
             userId: m.userId,
             user: {
@@ -205,29 +189,51 @@ export default async function GroupDetailPage({
             createdAt: s.createdAt.toISOString(),
             note: s.note,
           }))}
+          expenses={approvedExpenses.map((e) => ({
+            id: e.id,
+            title: e.title,
+            amount: e.amount,
+            paidById: e.paidById,
+            date: e.date.toISOString(),
+            splits: e.splits.map((s) => ({
+              userId: s.userId,
+              amount: s.amount,
+            })),
+            category: e.category,
+          }))}
+          fundAllocations={group.fundAllocations.map((fa) => ({
+            id: fa.id,
+            amount: fa.amount,
+            note: fa.note,
+            date: fa.date.toISOString(),
+            fromUserId: fa.fromUserId,
+            fromUserName: fa.fromUser.displayName,
+            toUserId: fa.toUserId,
+            toUserName: fa.toUser.displayName,
+          }))}
         />
       )}
 
       <Tabs defaultValue="expenses">
-        <TabsList className="w-full sm:w-auto grid grid-cols-4 sm:flex h-auto sm:h-9 p-1 bg-muted/80">
-          <TabsTrigger value="expenses" className="gap-1 px-1 sm:px-3 py-1.5 text-[11px] sm:text-sm font-semibold min-w-0">
+        <TabsList className="w-full sm:w-auto grid grid-cols-4 sm:flex h-10 sm:h-9 p-1 bg-muted/80">
+          <TabsTrigger value="expenses" className="gap-1 px-1 sm:px-3 py-1 text-[11px] sm:text-sm font-semibold min-w-0 flex items-center justify-center">
             <Receipt className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">Hoá đơn</span>
             {pendingExpenses.length > 0 && (
-              <Badge variant="destructive" className="ml-0.5 h-3.5 px-1 text-[10px] shrink-0 font-bold leading-none">
+              <Badge variant="destructive" className="ml-0.5 h-3.5 px-1 text-[9px] shrink-0 font-bold leading-none">
                 {pendingExpenses.length}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="debts" className="gap-1 px-1 sm:px-3 py-1.5 text-[11px] sm:text-sm font-semibold min-w-0">
+          <TabsTrigger value="debts" className="gap-1 px-1 sm:px-3 py-1 text-[11px] sm:text-sm font-semibold min-w-0 flex items-center justify-center">
             <ArrowRight className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">Dư nợ</span>
           </TabsTrigger>
-          <TabsTrigger value="members" className="gap-1 px-1 sm:px-3 py-1.5 text-[11px] sm:text-sm font-semibold min-w-0">
+          <TabsTrigger value="members" className="gap-1 px-1 sm:px-3 py-1 text-[11px] sm:text-sm font-semibold min-w-0 flex items-center justify-center">
             <Users className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">Thành viên</span>
           </TabsTrigger>
-          <TabsTrigger value="settings" className="gap-1 px-1 sm:px-3 py-1.5 text-[11px] sm:text-sm font-semibold min-w-0">
+          <TabsTrigger value="settings" className="gap-1 px-1 sm:px-3 py-1 text-[11px] sm:text-sm font-semibold min-w-0 flex items-center justify-center">
             <Settings className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">Cài đặt</span>
           </TabsTrigger>
@@ -330,13 +336,21 @@ export default async function GroupDetailPage({
         <TabsContent value="members" className="mt-4 space-y-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">
-                Thành viên ({group.members.length})
+              <CardTitle className="text-base flex items-center justify-between">
+                <span>Thành viên ({activeMembersCount})</span>
+                {group.members.length > activeMembersCount && (
+                  <span className="text-xs font-normal text-muted-foreground">
+                    ({group.members.length - activeMembersCount} người đã rời nhóm)
+                  </span>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {group.members.map((member) => (
-                <div key={member.id} className="flex items-center gap-3">
+                <div
+                  key={member.id}
+                  className={`flex items-center gap-3 ${member.isLeft ? "opacity-60" : ""}`}
+                >
                   <Avatar className="h-9 w-9">
                     {member.user.avatar && (
                       <AvatarImage src={member.user.avatar} alt={member.user.displayName} className="object-cover" />
@@ -346,23 +360,32 @@ export default async function GroupDetailPage({
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{member.user.displayName}</p>
+                    <p className={`text-sm font-medium ${member.isLeft ? "line-through text-muted-foreground" : ""}`}>
+                      {member.user.displayName}
+                    </p>
                     <div className="text-xs text-muted-foreground space-y-0.5">
                       <p>@{member.user.username}</p>
-                      {member.user.bankName && (
+                      {!member.isLeft && member.user.bankName && (
                         <p className="text-[11px] text-foreground font-medium bg-muted/50 px-2 py-0.5 rounded inline-block font-mono">
                           🏦 {member.user.bankName} • {member.user.accountNumber} • {member.user.accountName}
                         </p>
                       )}
                     </div>
                   </div>
-                  {member.role === "OWNER" && (
+
+                  {member.isLeft ? (
+                    <Badge variant="outline" className="gap-1 text-xs text-muted-foreground border-muted-foreground/30 font-normal">
+                      <LogOut className="h-3 w-3" />
+                      Đã rời nhóm
+                    </Badge>
+                  ) : member.role === "OWNER" ? (
                     <Badge variant="secondary" className="gap-1 text-xs">
                       <Crown className="h-3 w-3" />
                       Trưởng nhóm
                     </Badge>
-                  )}
-                  <MemberQRAction member={member} />
+                  ) : null}
+
+                  {!member.isLeft && <MemberQRAction member={member} />}
                 </div>
               ))}
             </CardContent>
@@ -411,7 +434,7 @@ export default async function GroupDetailPage({
         {/* Settings Tab */}
         <TabsContent value="settings" className="space-y-4 mt-4">
           <InviteSection inviteUrl={inviteUrl} inviteCode={group.inviteCode} />
-          {isOwner && (
+          {isOwner ? (
             <>
               <GroupSettingsForm
                 group={{
@@ -424,7 +447,7 @@ export default async function GroupDetailPage({
               />
               <FundManagerSettings
                 groupId={id}
-                members={group.members.map((m) => ({
+                members={group.members.filter((m) => !m.isLeft).map((m) => ({
                   userId: m.userId,
                   user: {
                     id: m.user.id,
@@ -435,6 +458,8 @@ export default async function GroupDetailPage({
                 currentFundManagerId={group.fundManagerId}
               />
             </>
+          ) : (
+            <LeaveGroupCard groupId={id} groupName={group.name} />
           )}
         </TabsContent>
       </Tabs>

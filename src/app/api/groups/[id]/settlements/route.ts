@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
+import { createNotification } from "@/lib/notifications";
+import { formatVND } from "@/lib/utils/format";
 
 import { sendGroupTelegramNotification } from "@/lib/telegram";
 import { formatVND } from "@/lib/utils/format";
@@ -41,6 +43,16 @@ export async function POST(
       fromUser: { select: { displayName: true } },
       toUser: { select: { displayName: true } },
     },
+  });
+
+  // Send Notification to recipient (toUserId)
+  await createNotification({
+    userId: toUserId,
+    title: `Yêu cầu xác nhận nhận tiền`,
+    content: `${session.user.name || "Thành viên"} đã đánh dấu trả cho bạn số tiền ${formatVND(amount)}. Vui lòng kiểm tra và xác nhận.`,
+    type: "SETTLEMENT_PENDING",
+    link: `/groups/${groupId}`,
+    entityId: settlement.id,
   });
 
   // Phát sóng tin nhắn cập nhật cho tất cả client

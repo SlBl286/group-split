@@ -14,7 +14,12 @@ export default auth((req) => {
   const isApiAuth = pathname.startsWith("/api/auth");
   const isWebhookRoute = pathname.startsWith("/api/webhook/");
   const isUploadsRoute = pathname.startsWith("/uploads/");
-  const isStaticFile = pathname.startsWith("/logo.") || pathname.startsWith("/favicon.") || pathname.endsWith(".png") || pathname.endsWith(".ico") || pathname.endsWith(".svg");
+  const isStaticFile =
+    pathname.startsWith("/logo.") ||
+    pathname.startsWith("/favicon.") ||
+    pathname.endsWith(".png") ||
+    pathname.endsWith(".ico") ||
+    pathname.endsWith(".svg");
 
   // Bỏ qua xác thực cho api auth, static assets, các routes công khai, webhook từ sepay và các tệp tải lên
   if (isApiAuth || isStaticFile) return NextResponse.next();
@@ -23,6 +28,10 @@ export default auth((req) => {
   }
 
   if (!isLoggedIn) {
+    // Trả về JSON 401 đối với các API endpoints thay vì redirect sang HTML trang /login
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    }
     return NextResponse.redirect(new URL("/login", req.nextUrl));
   }
 
@@ -31,6 +40,6 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|logo.png|logo.ico|api/auth).*)",
+    "/((?!_next/static|_next/image|favicon.ico|logo.png|logo.ico).*)",
   ],
 };
