@@ -17,19 +17,41 @@ export default async function GroupsPage() {
   const session = await auth();
   const userId = session!.user.id!;
 
-  const memberships = await prisma.groupMember.findMany({
-    where: { userId, isLeft: false },
-    include: {
-      group: {
-        include: {
-          owner: true,
-          members: { include: { user: true } },
-          expenses: { where: { status: "APPROVED" } },
+  let memberships: any[] = [];
+  try {
+    memberships = await prisma.groupMember.findMany({
+      where: { userId, isLeft: false },
+      include: {
+        group: {
+          include: {
+            owner: true,
+            members: { include: { user: true } },
+            expenses: { where: { status: "APPROVED" } },
+          },
         },
       },
-    },
-    orderBy: { joinedAt: "desc" },
-  });
+      orderBy: { joinedAt: "desc" },
+    });
+  } catch (err) {
+    console.error("[GroupsPage] Fallback query without isLeft:", err);
+    try {
+      memberships = await prisma.groupMember.findMany({
+        where: { userId },
+        include: {
+          group: {
+            include: {
+              owner: true,
+              members: { include: { user: true } },
+              expenses: { where: { status: "APPROVED" } },
+            },
+          },
+        },
+        orderBy: { joinedAt: "desc" },
+      });
+    } catch (e) {
+      memberships = [];
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -63,13 +85,13 @@ export default async function GroupsPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {memberships.map(({ group, role }) => {
-            const totalSpend = group.expenses.reduce(
-              (sum, e) => sum + e.amount,
+          {memberships.map(({ group, role }: any) => {
+            const totalSpend = (group.expenses || []).reduce(
+              (sum: number, e: any) => sum + e.amount,
               0
             );
             const isOwner = role === "OWNER";
-            const activeMembersCount = group.members.filter((m) => !m.isLeft).length;
+            const activeMembersCount = (group.members || []).filter((m: any) => m.isLeft !== true).length;
 
             return (
               <Link key={group.id} href={`/groups/${group.id}`}>
