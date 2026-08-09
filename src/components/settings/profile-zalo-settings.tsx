@@ -26,7 +26,7 @@ export function ProfileZaloSettings({ user }: ProfileZaloSettingsProps) {
   const [copiedCmd, setCopiedCmd] = useState(false);
 
   const otpCode = generateZaloOtp(user.id);
-  const commandText = `/setupnoti ${otpCode}`;
+  const commandText = `/setup ${otpCode}`;
 
   const copyOtp = async () => {
     await navigator.clipboard.writeText(otpCode);
