@@ -240,7 +240,7 @@ export default async function DashboardPage({
   let allMemberships: any[] = [];
   try {
     allMemberships = await prisma.groupMember.findMany({
-      where: { userId, isLeft: false },
+      where: { userId, NOT: { isLeft: true } },
       include: {
         group: {
           include: {

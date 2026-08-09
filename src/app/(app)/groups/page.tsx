@@ -20,7 +20,7 @@ export default async function GroupsPage() {
   let memberships: any[] = [];
   try {
     memberships = await prisma.groupMember.findMany({
-      where: { userId, isLeft: false },
+      where: { userId, NOT: { isLeft: true } },
       include: {
         group: {
           include: {
