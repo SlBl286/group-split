@@ -193,7 +193,7 @@ export function ProfileZaloSettings({ user }: ProfileZaloSettingsProps) {
 
             <div className="flex flex-col sm:flex-row gap-2">
               <a
-                href="https://zalo.me"
+                href="https://zalo.me/app/link/zapps/3974019549158168572"
                 target="_blank"
                 rel="noreferrer"
                 className="flex-1 inline-flex items-center justify-center gap-2 h-11 px-4 rounded-md text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
