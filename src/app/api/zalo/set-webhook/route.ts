@@ -2,6 +2,39 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getZaloApiUrl } from "@/lib/zalo";
 
+// 1. GET: Lấy thông tin Webhook hiện tại (getWebhookInfo)
+export async function GET() {
+  try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const token = process.env.ZALO_BOT_TOKEN;
+    if (!token) {
+      return NextResponse.json(
+        { error: "Chưa cấu hình ZALO_BOT_TOKEN trong file .env" },
+        { status: 400 }
+      );
+    }
+
+    const apiUrl = getZaloApiUrl("getWebhookInfo", token);
+
+    const res = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    return NextResponse.json({
+      success: true,
+      data,
+    });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+// 2. POST: Đăng ký Webhook URL (setWebhook)
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
@@ -25,7 +58,13 @@ export async function POST(req: NextRequest) {
     }
 
     const apiUrl = getZaloApiUrl("setWebhook", token);
-    const secret = secretToken || process.env.ZALO_BOT_SECRET_TOKEN || "";
+    // secret_token bắt buộc từ 8 tới 256 ký tự theo tài liệu Zalo Bot API
+    const secret =
+      secretToken && secretToken.trim().length >= 8
+        ? secretToken.trim()
+        : process.env.ZALO_BOT_SECRET_TOKEN && process.env.ZALO_BOT_SECRET_TOKEN.trim().length >= 8
+        ? process.env.ZALO_BOT_SECRET_TOKEN.trim()
+        : "9a48f76378e9b6a12df387ef98acdebf9a48f76378e9b6a12df387ef98acdebf";
 
     const res = await fetch(apiUrl, {
       method: "POST",
@@ -48,6 +87,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       message: "Đã đăng ký Webhook thành công với Zalo Bot Platform!",
+      secretUsed: secret,
       data,
     });
   } catch (err: any) {
@@ -59,6 +99,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// 3. DELETE: Hủy bỏ Webhook (deleteWebhook)
 export async function DELETE() {
   try {
     const session = await auth();
