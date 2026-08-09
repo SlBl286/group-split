@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 
+export { generateZaloOtp } from "@/lib/utils/zalo-otp";
+
 /**
- * Lấy URL gọi API của Zalo Bot Platform theo chuẩn https://bot-api.zaloplatforms.com/bot<BOT_TOKEN>/<functionName>
+ * Lấy URL gọi API của Zalo Bot Platform theo chuẩn
  */
 export function getZaloApiUrl(functionName: string, token: string): string {
   if (process.env.ZALO_BOT_API_URL) {
@@ -10,21 +12,50 @@ export function getZaloApiUrl(functionName: string, token: string): string {
   return `https://bot-api.zaloplatforms.com/bot${token}/${functionName}`;
 }
 
-export { generateZaloOtp } from "@/lib/utils/zalo-otp";
+/**
+ * Trả về instance của node-zalo-bot SDK chính thức (sử dụng eval require để nạp an toàn cho Turbopack)
+ */
+export function getZaloBotInstance() {
+  const token = process.env.ZALO_BOT_TOKEN;
+  if (!token) return null;
+  try {
+    // Dynamic require để Turbopack không phân tích các hàm require động bên trong package node-zalo-bot
+    const ZaloBotClass = eval('require')("node-zalo-bot");
+    const ZaloBot = ZaloBotClass.default || ZaloBotClass;
+    return new ZaloBot(token);
+  } catch (err) {
+    console.warn("[node-zalo-bot] Could not load node-zalo-bot SDK:", err);
+    return null;
+  }
+}
 
 /**
- * Gửi tin nhắn Zalo trực tiếp đến một Zalo Chat ID (bất đồng bộ)
+ * Gửi tin nhắn Zalo trực tiếp đến một Zalo Chat ID bằng node-zalo-bot SDK chính thức
  */
 export async function sendDirectZaloMessage(chatId: string, messageText: string) {
   const token = process.env.ZALO_BOT_TOKEN;
   if (!token || !chatId?.trim()) {
-    console.error("[Zalo Bot Platform] Missing token or chatId:", { token: !!token, chatId });
+    console.error("[node-zalo-bot] Missing token or chatId:", { token: !!token, chatId });
     return null;
   }
 
-  const apiUrl = getZaloApiUrl("sendMessage", token);
+  const bot = getZaloBotInstance();
+  if (bot && typeof bot.sendMessage === "function") {
+    try {
+      const result = await bot.sendMessage(String(chatId).trim(), messageText);
+      console.log("[node-zalo-bot] Send Message Success:", result);
+      return result;
+    } catch (err: any) {
+      console.error("[node-zalo-bot] Lỗi gửi tin nhắn Zalo SDK, chuyển sang fetch fallback:", err);
+    }
+  }
 
+  return fetchDirectFallback(token, chatId, messageText);
+}
+
+async function fetchDirectFallback(token: string, chatId: string, messageText: string) {
   try {
+    const apiUrl = getZaloApiUrl("sendMessage", token);
     const res = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -33,16 +64,9 @@ export async function sendDirectZaloMessage(chatId: string, messageText: string)
         text: messageText,
       }),
     });
-
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data.ok === false) {
-      console.error("[Zalo Bot Platform] Send Message Error:", data);
-    } else {
-      console.log("[Zalo Bot Platform] Send Message Success:", data);
-    }
-    return data;
+    return await res.json().catch(() => ({}));
   } catch (err) {
-    console.error("[Zalo Bot Platform] Lỗi gửi tin nhắn Zalo:", err);
+    console.error("[Zalo Fallback Error]:", err);
     return null;
   }
 }
@@ -54,7 +78,7 @@ export async function sendDirectZaloTest(chatId: string, groupName?: string) {
   const targetName = groupName ? `cho nhóm "${groupName}"` : "";
   const testMessage = `🟢 [GroupSplit] Đây là tin nhắn Zalo thử nghiệm ${targetName}!
   
-Zalo Chat ID (${chatId}) đã được kết nối và hoạt động hoàn hảo 🎉`;
+Zalo Chat ID (${chatId}) đã được kết nối thành công qua node-zalo-bot SDK! 🎉`;
   return sendDirectZaloMessage(chatId, testMessage);
 }
 
@@ -77,7 +101,7 @@ export async function sendUserZaloNotification(
 
     await sendDirectZaloMessage(user.zaloChatId, messageText);
   } catch (err) {
-    console.error("[Zalo Bot Platform] Lỗi khi lấy Zalo Chat ID người dùng:", err);
+    console.error("[node-zalo-bot] Lỗi khi lấy Zalo Chat ID người dùng:", err);
   }
 }
 
@@ -105,6 +129,6 @@ export async function sendMultipleUsersZaloNotification(
       await sendDirectZaloMessage(chatId, messageText);
     }
   } catch (err) {
-    console.error("[Zalo Bot Platform] Lỗi khi gửi thông báo nhiều người dùng:", err);
+    console.error("[node-zalo-bot] Lỗi khi gửi thông báo nhiều người dùng:", err);
   }
 }
