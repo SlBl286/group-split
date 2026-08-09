@@ -108,13 +108,12 @@ export function SettlementSection({
   const [allocPage, setAllocPage] = useState(1);
   const [breakdownDebt, setBreakdownDebt] = useState<DebtEntry | null>(null);
 
-  const visibleSettlements = settlements.filter(
-    (s) => !(s.note?.startsWith("[QR_PENDING]") && !s.isConfirmed)
+  const visibleSettlements = (settlements || []).filter(
+    (s) => !(s?.note?.startsWith("[QR_PENDING]") && !s?.isConfirmed)
   );
 
-
-
   const filteredSettlements = visibleSettlements.filter((s) => {
+    if (!s) return false;
     if (selectedMemberId !== "all" && s.fromUserId !== selectedMemberId && s.toUserId !== selectedMemberId) {
       return false;
     }
@@ -147,8 +146,11 @@ export function SettlementSection({
   const groupSettlementsByMonth = (list: Settlement[]) => {
     const groups: Record<string, Settlement[]> = {};
     for (const s of list) {
+      if (!s) continue;
       const d = new Date(s.createdAt);
-      const monthStr = `Tháng ${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+      const monthStr = isNaN(d.getTime())
+        ? "Khác"
+        : `Tháng ${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
       if (!groups[monthStr]) {
         groups[monthStr] = [];
       }
@@ -159,32 +161,43 @@ export function SettlementSection({
 
   const groupedSettlements = groupSettlementsByMonth(paginatedSettlements);
 
-  const otherDebts = debts.filter(d => d.fromUserId !== currentUserId);
+  const otherDebts = (debts || []).filter((d) => d && d.fromUserId !== currentUserId);
 
   const selectedMemberName = selectedMemberId !== "all"
-    ? members.find((m) => m.userId === selectedMemberId)?.user.displayName
+    ? (members || []).find((m) => m?.userId === selectedMemberId)?.user?.displayName || null
     : null;
 
   const isFundManager =
     fundManagerId === currentUserId ||
-    (fundManagerId === null && owner.id === currentUserId);
+    (fundManagerId === null && owner?.id === currentUserId);
 
   // Group allocations by date (day) and note
-  const groupedAllocationsByBatch = fundAllocations.reduce((acc, curr) => {
-    const dateStr = curr.date.split("T")[0];
-    const key = `${dateStr}-${curr.note || ""}-${curr.amount}`;
+  const groupedAllocationsByBatch = (fundAllocations || []).reduce((acc, curr) => {
+    if (!curr) return acc;
+    const rawDate = curr.date;
+    let dateStr = "";
+    if (typeof rawDate === "string") {
+      dateStr = rawDate.split("T")[0];
+    } else if (rawDate instanceof Date) {
+      dateStr = rawDate.toISOString().split("T")[0];
+    }
+
+    const fromName = curr.fromUserName || (curr as any).fromUser?.displayName || "Thành viên";
+    const toName = curr.toUserName || (curr as any).toUser?.displayName || "Thành viên";
+
+    const key = `${dateStr}-${curr.note || ""}-${curr.amount || 0}`;
     if (!acc[key]) {
       acc[key] = {
-        date: curr.date,
-        amount: curr.amount,
-        note: curr.note,
-        fromUserName: curr.fromUserName,
+        date: rawDate,
+        amount: curr.amount || 0,
+        note: curr.note || null,
+        fromUserName: fromName,
         recipients: [],
       };
     }
-    acc[key].recipients.push(curr.toUserName);
+    acc[key].recipients.push(toName);
     return acc;
-  }, {} as Record<string, { date: string; amount: number; note: string | null; fromUserName: string; recipients: string[] }>);
+  }, {} as Record<string, { date: any; amount: number; note: string | null; fromUserName: string; recipients: string[] }>);
 
   const allocationsList = Object.values(groupedAllocationsByBatch).sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()

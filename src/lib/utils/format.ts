@@ -4,10 +4,10 @@ export function formatVND(amount: number): string {
     currency: "VND",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount);
+  }).format(amount || 0);
 }
 
-export function formatDate(date: Date | string): string {
+export function formatDate(date?: Date | string | null): string {
   if (!date) return "";
   const d = new Date(date);
   if (isNaN(d.getTime())) return "";
@@ -21,7 +21,7 @@ export function formatDate(date: Date | string): string {
   }).format(d);
 }
 
-export function formatDateTime(date: Date | string): string {
+export function formatDateTime(date?: Date | string | null): string {
   if (!date) return "";
   const d = new Date(date);
   if (isNaN(d.getTime())) return "";
@@ -35,9 +35,11 @@ export function formatDateTime(date: Date | string): string {
   }).format(d);
 }
 
-export function getInitials(name: string): string {
-  return name
-    .split(" ")
+export function getInitials(name?: string | null): string {
+  if (!name || typeof name !== "string") return "GS";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "GS";
+  return parts
     .map((n) => n[0])
     .join("")
     .toUpperCase()
