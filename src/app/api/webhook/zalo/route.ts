@@ -8,6 +8,7 @@ export async function POST(req: NextRequest) {
     const incomingSecret = req.headers.get("x-bot-api-secret-token");
 
     if (expectedSecret && incomingSecret !== expectedSecret) {
+      console.warn("[Zalo Webhook] Unauthorized request. Incoming secret mismatch:", incomingSecret);
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
     }
 
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
 
 👉 Lấy mã OTP 6 số tại mục "Cài đặt cá nhân" trên website GroupSplit.`;
 
-        sendDirectZaloMessage(String(chatId), helpText);
+        await sendDirectZaloMessage(String(chatId), helpText);
         return NextResponse.json({ message: "Success" });
       }
 
@@ -68,7 +69,7 @@ Zalo Chat ID: ${chatId}
 
 Từ giờ các thông báo hóa đơn, nợ và duyệt tiền cá nhân của bạn sẽ tự động gửi trực tiếp tới đây! 🎉`;
 
-          sendDirectZaloMessage(String(chatId), confirmText);
+          await sendDirectZaloMessage(String(chatId), confirmText);
         } else {
           // Trường hợp nhập sai mã OTP
           const helpText = `⚠️ [GroupSplit] Không tìm thấy tài khoản tương ứng với mã/username "${tokenArg}".
@@ -76,7 +77,7 @@ Từ giờ các thông báo hóa đơn, nợ và duyệt tiền cá nhân của 
 Vui lòng vào trang Cài đặt cá nhân trên website GroupSplit để lấy mã OTP 6 số chính xác và gửi lại cú pháp:
 /setup <Mã_OTP_6_số>`;
 
-          sendDirectZaloMessage(String(chatId), helpText);
+          await sendDirectZaloMessage(String(chatId), helpText);
         }
       }
     }

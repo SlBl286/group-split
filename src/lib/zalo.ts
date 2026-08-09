@@ -17,20 +17,45 @@ export { generateZaloOtp } from "@/lib/utils/zalo-otp";
  */
 export async function sendDirectZaloMessage(chatId: string, messageText: string) {
   const token = process.env.ZALO_BOT_TOKEN;
-  if (!token || !chatId?.trim()) return;
+  if (!token || !chatId?.trim()) {
+    console.error("[Zalo Bot Platform] Missing token or chatId:", { token: !!token, chatId });
+    return null;
+  }
 
   const apiUrl = getZaloApiUrl("sendMessage", token);
 
-  fetch(apiUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId.trim(),
-      text: messageText,
-    }),
-  }).catch((err) => {
+  try {
+    const res = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: String(chatId).trim(),
+        text: messageText,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) {
+      console.error("[Zalo Bot Platform] Send Message Error:", data);
+    } else {
+      console.log("[Zalo Bot Platform] Send Message Success:", data);
+    }
+    return data;
+  } catch (err) {
     console.error("[Zalo Bot Platform] Lỗi gửi tin nhắn Zalo:", err);
-  });
+    return null;
+  }
+}
+
+/**
+ * Hàm gửi tin nhắn Zalo thử nghiệm
+ */
+export async function sendDirectZaloTest(chatId: string, groupName?: string) {
+  const targetName = groupName ? `cho nhóm "${groupName}"` : "";
+  const testMessage = `🟢 [GroupSplit] Đây là tin nhắn Zalo thử nghiệm ${targetName}!
+  
+Zalo Chat ID (${chatId}) đã được kết nối và hoạt động hoàn hảo 🎉`;
+  return sendDirectZaloMessage(chatId, testMessage);
 }
 
 /**
@@ -68,63 +93,18 @@ export async function sendMultipleUsersZaloNotification(
 
   try {
     const users = await prisma.user.findMany({
-      where: {
-        id: { in: uniqueIds },
-        zaloChatId: { not: null },
-      },
+      where: { id: { in: uniqueIds } },
       select: { zaloChatId: true },
     });
 
-    for (const u of users) {
-      if (u.zaloChatId?.trim()) {
-        sendDirectZaloMessage(u.zaloChatId, messageText);
-      }
+    const validChatIds = users
+      .map((u) => u.zaloChatId?.trim())
+      .filter((id): id is string => !!id);
+
+    for (const chatId of validChatIds) {
+      await sendDirectZaloMessage(chatId, messageText);
     }
   } catch (err) {
-    console.error("[Zalo Bot Platform] Lỗi gửi tin nhắn tới nhiều người dùng:", err);
-  }
-}
-
-/**
- * Gửi tin nhắn thử nghiệm trực tiếp đến một Zalo Chat ID cá nhân
- */
-export async function sendDirectZaloTest(chatId: string, displayName: string) {
-  const token = process.env.ZALO_BOT_TOKEN;
-  if (!token) {
-    throw new Error("Chưa cấu hình ZALO_BOT_TOKEN trong file .env của hệ thống.");
-  }
-
-  const apiUrl = getZaloApiUrl("sendMessage", token);
-
-  const message = `🤖 [GroupSplit] Chào ${displayName}! 
-
-🟢 Tài khoản Zalo cá nhân của bạn đã được kết nối thành công. 
-Từ giờ, bạn sẽ nhận được thông báo cá nhân trực tiếp tại đây mỗi khi có hóa đơn, nợ mới hoặc thanh toán liên quan đến bạn! 🎉`;
-
-  try {
-    const res = await fetch(apiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId.trim(),
-        text: message,
-      }),
-    });
-
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data.ok === false) {
-      throw new Error(
-        data.description || data.message || "Gửi tin nhắn thử nghiệm Zalo thất bại. Vui lòng kiểm tra lại Zalo Chat ID hoặc Bot Token."
-      );
-    }
-
-    return data;
-  } catch (err: any) {
-    if (err.cause?.code === "ENOTFOUND" || err.message?.includes("fetch failed")) {
-      throw new Error(
-        `Không thể kết nối tới Zalo Bot API (${apiUrl}). Vui lòng kiểm tra kết nối mạng hoặc ZALO_BOT_TOKEN trong file .env.`
-      );
-    }
-    throw err;
+    console.error("[Zalo Bot Platform] Lỗi khi gửi thông báo nhiều người dùng:", err);
   }
 }
