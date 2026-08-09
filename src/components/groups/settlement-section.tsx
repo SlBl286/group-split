@@ -174,12 +174,12 @@ export function SettlementSection({
   // Group allocations by date (day) and note
   const groupedAllocationsByBatch = (fundAllocations || []).reduce((acc, curr) => {
     if (!curr) return acc;
-    const rawDate = curr.date;
+    const rawDate: any = curr.date;
     let dateStr = "";
     if (typeof rawDate === "string") {
       dateStr = rawDate.split("T")[0];
-    } else if (rawDate instanceof Date) {
-      dateStr = rawDate.toISOString().split("T")[0];
+    } else if (rawDate && typeof rawDate === "object" && "toISOString" in rawDate) {
+      dateStr = (rawDate as Date).toISOString().split("T")[0];
     }
 
     const fromName = curr.fromUserName || (curr as any).fromUser?.displayName || "Thành viên";
