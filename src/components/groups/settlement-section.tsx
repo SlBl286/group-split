@@ -461,11 +461,11 @@ export function SettlementSection({
                         <div className="min-w-0">
                           <p className="text-sm">
                             <span className={`font-semibold ${s.fromUserId === currentUserId ? "text-blue-600 dark:text-blue-400" : ""}`}>
-                              {s.fromUserId === currentUserId ? "Bạn" : s.fromUserName}
+                              {s.fromUserId === currentUserId ? "Bạn" : (s as any).fromUser?.displayName || s.fromUserName || "Thành viên"}
                             </span>
                             {" → "}
                             <span className={`font-semibold ${s.toUserId === currentUserId ? "text-blue-600 dark:text-blue-400" : ""}`}>
-                              {s.toUserId === currentUserId ? "Bạn" : s.toUserName}
+                              {s.toUserId === currentUserId ? "Bạn" : (s as any).toUser?.displayName || s.toUserName || "Thành viên"}
                             </span>
                             <span className="text-muted-foreground ml-2 font-mono">
                               {formatVND(s.amount)}

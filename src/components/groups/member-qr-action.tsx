@@ -24,11 +24,15 @@ interface MemberQRActionProps {
   };
 }
 
-export function MemberQRAction({ member }: MemberQRActionProps) {
+export function MemberQRAction({ member }: any) {
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const { bankName, accountNumber, accountName } = member.user;
+  const userObj = member?.user || member || {};
+  const displayName = userObj.displayName || "Thành viên";
+  const bankName = userObj.bankName;
+  const accountNumber = userObj.accountNumber;
+  const accountName = userObj.accountName;
 
   // Nếu thành viên chưa cấu hình ngân hàng, hiển thị Popover hướng dẫn/thông báo
   if (!bankName || !accountNumber) {
@@ -75,7 +79,7 @@ export function MemberQRAction({ member }: MemberQRActionProps) {
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-xs mx-auto text-center p-6 rounded-2xl">
           <DialogHeader className="space-y-1">
-            <DialogTitle className="text-base font-bold">Mã QR của {member.user.displayName}</DialogTitle>
+            <DialogTitle className="text-base font-bold">Mã QR của {displayName}</DialogTitle>
             <DialogDescription className="text-[11px] text-muted-foreground">
               Quét mã bằng app ngân hàng để chuyển khoản trực tiếp
             </DialogDescription>
@@ -86,7 +90,7 @@ export function MemberQRAction({ member }: MemberQRActionProps) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={qrUrl}
-              alt={`VietQR ${member.user.displayName}`}
+              alt={`VietQR ${displayName}`}
               className="w-full h-auto max-h-[196px] object-contain"
             />
           </div>

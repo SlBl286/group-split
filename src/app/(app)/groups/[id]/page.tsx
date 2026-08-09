@@ -302,7 +302,7 @@ export default async function GroupDetailPage({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {group.members.filter((m) => !m.isLeft).map((member) => {
+              {group.members.filter((m) => m && !m.isLeft && m.user).map((member) => {
                 const memberBalance = balances.find((b) => b.userId === member.userId)?.balance ?? 0;
                 const isMemberOwner = member.userId === group.ownerId;
                 const isMemberFundManager = group.fundManagerId === member.userId;
@@ -359,7 +359,7 @@ export default async function GroupDetailPage({
                       </Badge>
 
                       {/* Nút hành động quét QR cá nhân */}
-                      <MemberQRAction member={member.user as any} />
+                      <MemberQRAction member={member as any} />
                     </div>
                   </div>
                 );
