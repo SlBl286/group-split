@@ -96,9 +96,13 @@ async function getGroupDetail(id: string) {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const group = await prisma.group.findUnique({ where: { id } });
-  return { title: group ? `${group.name} - GroupSplit` : "Nhóm - GroupSplit" };
+  try {
+    const { id } = await params;
+    const group = await prisma.group.findUnique({ where: { id }, select: { name: true } });
+    return { title: group ? `${group.name} - GroupSplit` : "Nhóm - GroupSplit" };
+  } catch {
+    return { title: "Nhóm - GroupSplit" };
+  }
 }
 
 export default async function GroupDetailPage({
