@@ -11,25 +11,20 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import {
   Plus,
   Crown,
   Receipt,
   Users,
-  ArrowRight,
   CheckCircle2,
   Clock,
-  XCircle,
   Settings,
-  LogOut,
 } from "lucide-react";
 import { InviteSection } from "@/components/groups/invite-section";
 import { AddMemberForm } from "@/components/groups/add-member-form";
 import { ExpenseApproveButton } from "@/components/groups/expense-approve-button";
 import { SettlementSection } from "@/components/groups/settlement-section";
-import { DebtTrendChart } from "@/components/groups/debt-trend-chart";
 import { ExpensesList } from "@/components/groups/expenses-list";
 import { GroupBalanceSummary } from "@/components/groups/group-balance-summary";
 import { FundManagerSettings } from "@/components/groups/fund-manager-settings";
@@ -37,6 +32,68 @@ import { FundAllocationTrigger } from "@/components/groups/fund-allocation-trigg
 import { MemberQRAction } from "@/components/groups/member-qr-action";
 import { GroupSettingsForm } from "@/components/groups/group-settings-form";
 import { LeaveGroupCard } from "@/components/groups/leave-group-card";
+
+async function getGroupDetail(id: string) {
+  try {
+    return await prisma.group.findUnique({
+      where: { id },
+      include: {
+        owner: true,
+        fundManager: true,
+        members: {
+          include: { user: true },
+          orderBy: { joinedAt: "asc" },
+        },
+        expenses: {
+          include: {
+            paidBy: true,
+            createdBy: true,
+            splits: { include: { user: true } },
+            categoryRel: true,
+          },
+          orderBy: { createdAt: "desc" },
+        },
+        settlements: {
+          include: { fromUser: true, toUser: true },
+          orderBy: { createdAt: "desc" },
+        },
+        fundAllocations: {
+          include: { fromUser: true, toUser: true },
+          orderBy: { date: "desc" },
+        },
+      },
+    });
+  } catch (err) {
+    console.error("[GroupDetailPage] Fallback query without categoryRel:", err);
+    return await prisma.group.findUnique({
+      where: { id },
+      include: {
+        owner: true,
+        fundManager: true,
+        members: {
+          include: { user: true },
+          orderBy: { joinedAt: "asc" },
+        },
+        expenses: {
+          include: {
+            paidBy: true,
+            createdBy: true,
+            splits: { include: { user: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        },
+        settlements: {
+          include: { fromUser: true, toUser: true },
+          orderBy: { createdAt: "desc" },
+        },
+        fundAllocations: {
+          include: { fromUser: true, toUser: true },
+          orderBy: { date: "desc" },
+        },
+      },
+    });
+  }
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -53,33 +110,7 @@ export default async function GroupDetailPage({
   const session = await auth();
   const userId = session!.user.id!;
 
-  const group = await prisma.group.findUnique({
-    where: { id },
-    include: {
-      owner: true,
-      members: {
-        include: { user: true },
-        orderBy: { joinedAt: "asc" },
-      },
-      expenses: {
-        include: {
-          paidBy: true,
-          createdBy: true,
-          splits: { include: { user: true } },
-          categoryRel: true,
-        },
-        orderBy: { createdAt: "desc" },
-      },
-      settlements: {
-        include: { fromUser: true, toUser: true },
-        orderBy: { createdAt: "desc" },
-      },
-      fundAllocations: {
-        include: { fromUser: true, toUser: true },
-        orderBy: { date: "desc" },
-      },
-    },
-  });
+  const group = await getGroupDetail(id);
 
   if (!group) notFound();
 
@@ -94,11 +125,11 @@ export default async function GroupDetailPage({
   const pendingExpenses = group.expenses.filter((e) => e.status === "PENDING");
 
   const { debts, balances } = calculateDebts(
-    approvedExpenses,
-    group.members,
-    group.settlements,
+    approvedExpenses as any,
+    group.members as any,
+    group.settlements as any,
     group.ownerId,
-    group.fundAllocations
+    group.fundAllocations as any
   );
 
   const myBalance = balances.find((b) => b.userId === userId);
@@ -113,26 +144,16 @@ export default async function GroupDetailPage({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Avatar className="h-12 w-12 border shadow-sm shrink-0">
-            {group.avatar && (
-              <AvatarImage src={group.avatar} alt={group.name} className="object-cover" />
-            )}
-            <AvatarFallback className="bg-primary/10 text-primary text-base font-bold">
+          <Avatar className="h-12 w-12 border-2 border-primary/20">
+            <AvatarImage src={group.avatar || undefined} alt={group.name} />
+            <AvatarFallback className="bg-primary/10 text-primary font-bold text-lg">
               {getInitials(group.name)}
             </AvatarFallback>
           </Avatar>
           <div>
-            <div className="flex items-center gap-2 mb-0.5">
-              <h1 className="text-xl font-bold tracking-tight">{group.name}</h1>
-              {isOwner && (
-                <Badge variant="secondary" className="gap-1 h-5 text-[10px] px-1.5 font-bold">
-                  <Crown className="h-2.5 w-2.5" />
-                  Trưởng nhóm
-                </Badge>
-              )}
-            </div>
+            <h1 className="text-2xl font-bold tracking-tight">{group.name}</h1>
             {group.description && (
-              <p className="text-muted-foreground text-xs">{group.description}</p>
+              <p className="text-muted-foreground text-sm">{group.description}</p>
             )}
           </div>
         </div>
@@ -152,315 +173,231 @@ export default async function GroupDetailPage({
           <Button asChild size="lg" className="gap-2 shrink-0 h-11 md:h-12 px-5 md:px-6 text-sm md:text-base font-bold shadow-md rounded-xl">
             <Link href={`/groups/${id}/expenses/new`}>
               <Plus className="h-5 w-5" />
-              Thêm hoá đơn
+              Tạo hóa đơn
             </Link>
           </Button>
         </div>
       </div>
 
-      {/* Balance summary */}
-      {myBalance && (
-        <GroupBalanceSummary
-          myBalance={myBalance}
-          myDebts={debts.filter((d) => d.fromUserId === userId)}
-          myClaims={debts.filter((d) => d.toUserId === userId)}
-          members={group.members.map((m) => ({
-            userId: m.userId,
-            user: {
-              id: m.user.id,
-              displayName: m.user.displayName,
-              bankName: m.user.bankName,
-              accountNumber: m.user.accountNumber,
-              accountName: m.user.accountName,
-              sepayWebhookSecret: m.user.sepayWebhookSecret,
-              avatar: m.user.avatar,
-            },
-          }))}
-          groupId={id}
-          currentUserId={userId}
-          settlements={group.settlements.map((s) => ({
-            id: s.id,
-            fromUserId: s.fromUserId,
-            fromUserName: s.fromUser.displayName,
-            toUserId: s.toUserId,
-            toUserName: s.toUser.displayName,
-            amount: s.amount,
-            isConfirmed: s.isConfirmed,
-            createdAt: s.createdAt.toISOString(),
-            note: s.note,
-          }))}
-          expenses={approvedExpenses.map((e) => ({
-            id: e.id,
-            title: e.title,
-            amount: e.amount,
-            paidById: e.paidById,
-            date: e.date.toISOString(),
-            splits: e.splits.map((s) => ({
-              userId: s.userId,
-              amount: s.amount,
-            })),
-            category: e.category,
-          }))}
-          fundAllocations={group.fundAllocations.map((fa) => ({
-            id: fa.id,
-            amount: fa.amount,
-            note: fa.note,
-            date: fa.date.toISOString(),
-            fromUserId: fa.fromUserId,
-            fromUserName: fa.fromUser.displayName,
-            toUserId: fa.toUserId,
-            toUserName: fa.toUser.displayName,
-          }))}
-        />
-      )}
+      {/* Group Balance Summary (Lũy kế & Quỹ nhóm) */}
+      <GroupBalanceSummary
+        groupId={id}
+        currentUserId={userId}
+        myBalance={myBalance || { userId, balance: 0 }}
+        myDebts={debts.filter((d) => d.fromUserId === userId)}
+        myClaims={debts.filter((d) => d.toUserId === userId)}
+        members={group.members.filter((m) => !m.isLeft) as any}
+        settlements={group.settlements as any}
+        expenses={approvedExpenses as any}
+        fundAllocations={group.fundAllocations as any}
+      />
 
-      <Tabs defaultValue="expenses">
-        <TabsList className="w-full sm:w-auto grid grid-cols-4 sm:flex h-10 sm:h-9 p-1 bg-muted/80">
-          <TabsTrigger value="expenses" className="gap-1 px-1 sm:px-3 py-1 text-[11px] sm:text-sm font-semibold min-w-0 flex items-center justify-center">
-            <Receipt className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">Hoá đơn</span>
+      {/* Main Content Tabs */}
+      <Tabs defaultValue="expenses" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-4 lg:w-[480px]">
+          <TabsTrigger value="expenses" className="gap-1.5 text-xs sm:text-sm">
+            <Receipt className="h-4 w-4" />
+            Hóa đơn
             {pendingExpenses.length > 0 && (
-              <Badge variant="destructive" className="ml-0.5 h-3.5 px-1 text-[9px] shrink-0 font-bold leading-none">
+              <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">
                 {pendingExpenses.length}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="debts" className="gap-1 px-1 sm:px-3 py-1 text-[11px] sm:text-sm font-semibold min-w-0 flex items-center justify-center">
-            <ArrowRight className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">Dư nợ</span>
+          <TabsTrigger value="settle" className="gap-1.5 text-xs sm:text-sm">
+            <CheckCircle2 className="h-4 w-4" />
+            Trả nợ
           </TabsTrigger>
-          <TabsTrigger value="members" className="gap-1 px-1 sm:px-3 py-1 text-[11px] sm:text-sm font-semibold min-w-0 flex items-center justify-center">
-            <Users className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">Thành viên</span>
+          <TabsTrigger value="members" className="gap-1.5 text-xs sm:text-sm">
+            <Users className="h-4 w-4" />
+            Thành viên
           </TabsTrigger>
-          <TabsTrigger value="settings" className="gap-1 px-1 sm:px-3 py-1 text-[11px] sm:text-sm font-semibold min-w-0 flex items-center justify-center">
-            <Settings className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">Cài đặt</span>
+          <TabsTrigger value="settings" className="gap-1.5 text-xs sm:text-sm">
+            <Settings className="h-4 w-4" />
+            Cài đặt
           </TabsTrigger>
         </TabsList>
 
-        {/* Expenses Tab */}
-        <TabsContent value="expenses" className="mt-4">
+        {/* Tab 1: Expenses List */}
+        <TabsContent value="expenses" className="space-y-4">
+          {/* Pending Approval Section */}
+          {pendingExpenses.length > 0 && (
+            <Card className="border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-bold flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                  <Clock className="h-4 w-4" />
+                  Hóa đơn chờ duyệt ({pendingExpenses.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {pendingExpenses.map((expense) => (
+                  <div
+                    key={expense.id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border bg-card"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm">{expense.title}</span>
+                        <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/40">
+                          Chờ duyệt
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {formatVND(expense.amount)} • Tạo bởi{" "}
+                        <span className="font-medium text-foreground">{expense.createdBy.displayName}</span> •{" "}
+                        {formatDate(expense.date)}
+                      </p>
+                    </div>
+                    {isOwner && (
+                      <ExpenseApproveButton expenseId={expense.id} />
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Approved Expenses */}
           <ExpensesList
-            expenses={group.expenses.map((e) => ({
-              id: e.id,
-              title: e.title,
-              amount: e.amount,
-              splitType: e.splitType,
-              status: e.status,
-              date: e.date.toISOString(),
-              category: e.categoryRel ? e.categoryRel.name : e.category,
-              categoryIcon: e.categoryRel ? e.categoryRel.icon : undefined,
-              paidBy: {
-                displayName: e.paidBy.displayName,
-              },
-              splits: e.splits.map((s) => ({
-                id: s.id,
-                amount: s.amount,
-                isPaid: s.isPaid,
-                user: {
-                  displayName: s.user.displayName,
-                },
-              })),
-            }))}
-            isOwner={isOwner}
             groupId={id}
+            expenses={approvedExpenses as any}
             currentUserId={userId}
-            currentUserName={group.members.find((m) => m.userId === userId)?.user.displayName ?? ""}
+            currentUserName={session!.user.name || ""}
+            isOwner={isOwner}
           />
         </TabsContent>
 
-        {/* Debts Tab */}
-        <TabsContent value="debts" className="mt-4">
+        {/* Tab 2: Settlement Section */}
+        <TabsContent value="settle" className="space-y-4">
           <SettlementSection
-            debts={debts}
             groupId={id}
+            debts={debts}
             currentUserId={userId}
             owner={{
-              id: group.ownerId,
+              id: group.owner.id,
               displayName: group.owner.displayName,
               bankName: group.owner.bankName,
               accountNumber: group.owner.accountNumber,
               accountName: group.owner.accountName,
             }}
-            members={group.members.map((m) => ({
-              userId: m.userId,
-              user: {
-                id: m.user.id,
-                displayName: m.user.displayName,
-                bankName: m.user.bankName,
-                accountNumber: m.user.accountNumber,
-                accountName: m.user.accountName,
-                sepayWebhookSecret: m.user.sepayWebhookSecret,
-                avatar: m.user.avatar,
-              },
-            }))}
-            settlements={group.settlements.map(s => ({
-              id: s.id,
-              fromUserId: s.fromUserId,
-              fromUserName: s.fromUser.displayName,
-              toUserId: s.toUserId,
-              toUserName: s.toUser.displayName,
-              amount: s.amount,
-              isConfirmed: s.isConfirmed,
-              createdAt: s.createdAt.toISOString(),
-              note: s.note,
-            }))}
-            expenses={approvedExpenses.map(e => ({
-              id: e.id,
-              title: e.title,
-              amount: e.amount,
-              paidById: e.paidById,
-              date: e.date.toISOString(),
-              splits: e.splits.map(s => ({
-                userId: s.userId,
-                amount: s.amount,
-              })),
-              category: e.category,
-            }))}
+            members={group.members.filter((m) => !m.isLeft) as any}
+            settlements={group.settlements as any}
+            expenses={approvedExpenses as any}
             fundManagerId={group.fundManagerId}
-            fundAllocations={group.fundAllocations.map(fa => ({
-              id: fa.id,
-              amount: fa.amount,
-              note: fa.note,
-              date: fa.date.toISOString(),
-              fromUserId: fa.fromUserId,
-              fromUserName: fa.fromUser.displayName,
-              toUserId: fa.toUserId,
-              toUserName: fa.toUser.displayName,
-            }))}
+            fundAllocations={group.fundAllocations as any}
           />
         </TabsContent>
 
-        {/* Members Tab */}
-        <TabsContent value="members" className="mt-4 space-y-4">
+        {/* Tab 3: Members Section */}
+        <TabsContent value="members" className="space-y-4">
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center justify-between">
-                <span>Thành viên ({activeMembersCount})</span>
-                {group.members.length > activeMembersCount && (
-                  <span className="text-xs font-normal text-muted-foreground">
-                    ({group.members.length - activeMembersCount} người đã rời nhóm)
-                  </span>
-                )}
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Danh sách thành viên ({activeMembersCount})
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {group.members.map((member) => (
-                <div
-                  key={member.id}
-                  className={`flex items-center gap-3 ${member.isLeft ? "opacity-60" : ""}`}
-                >
-                  <Avatar className="h-9 w-9">
-                    {member.user.avatar && (
-                      <AvatarImage src={member.user.avatar} alt={member.user.displayName} className="object-cover" />
-                    )}
-                    <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                      {getInitials(member.user.displayName)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${member.isLeft ? "line-through text-muted-foreground" : ""}`}>
-                      {member.user.displayName}
-                    </p>
-                    <div className="text-xs text-muted-foreground space-y-0.5">
-                      <p>@{member.user.username}</p>
-                      {!member.isLeft && member.user.bankName && (
-                        <p className="text-[11px] text-foreground font-medium bg-muted/50 px-2 py-0.5 rounded inline-block font-mono">
-                          🏦 {member.user.bankName} • {member.user.accountNumber} • {member.user.accountName}
+              {group.members.filter((m) => !m.isLeft).map((member) => {
+                const memberBalance = balances.find((b) => b.userId === member.userId)?.balance ?? 0;
+                const isMemberOwner = member.userId === group.ownerId;
+                const isMemberFundManager = group.fundManagerId === member.userId;
+
+                return (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between p-3 rounded-xl border bg-card hover:bg-accent/40 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Avatar className="h-10 w-10 border">
+                        <AvatarImage src={member.user.avatar || undefined} alt={member.user.displayName} />
+                        <AvatarFallback className="bg-muted text-foreground text-xs font-semibold">
+                          {getInitials(member.user.displayName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-semibold text-sm truncate">{member.user.displayName}</p>
+                          {isMemberOwner && (
+                            <Badge variant="secondary" className="gap-1 text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/20 shrink-0">
+                              <Crown className="h-3 w-3" /> Trưởng nhóm
+                            </Badge>
+                          )}
+                          {isMemberFundManager && !isMemberOwner && (
+                            <Badge variant="secondary" className="gap-1 text-[10px] bg-blue-500/10 text-blue-600 border-blue-500/20 shrink-0">
+                              Quản lý quỹ
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">
+                          @{member.user.username}
                         </p>
-                      )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Thẻ hiển thị số dư lũy kế cá nhân */}
+                      <Badge
+                        variant={
+                          memberBalance > 0.01
+                            ? "default"
+                            : memberBalance < -0.01
+                            ? "destructive"
+                            : "secondary"
+                        }
+                        className="text-xs font-mono"
+                      >
+                        {memberBalance > 0.01
+                          ? `+${formatVND(memberBalance)}`
+                          : memberBalance < -0.01
+                          ? formatVND(memberBalance)
+                          : "0đ"}
+                      </Badge>
+
+                      {/* Nút hành động quét QR cá nhân */}
+                      <MemberQRAction member={member.user as any} />
                     </div>
                   </div>
-
-                  {member.isLeft ? (
-                    <Badge variant="outline" className="gap-1 text-xs text-muted-foreground border-muted-foreground/30 font-normal">
-                      <LogOut className="h-3 w-3" />
-                      Đã rời nhóm
-                    </Badge>
-                  ) : member.role === "OWNER" ? (
-                    <Badge variant="secondary" className="gap-1 text-xs">
-                      <Crown className="h-3 w-3" />
-                      Trưởng nhóm
-                    </Badge>
-                  ) : null}
-
-                  {!member.isLeft && <MemberQRAction member={member} />}
-                </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
 
-          {/* Biểu đồ xu hướng dư nợ nhóm */}
-          <DebtTrendChart
-            currentUserId={userId}
-            members={group.members.map((m) => ({
-              userId: m.userId,
-              user: {
-                id: m.user.id,
-                displayName: m.user.displayName,
-              },
-            }))}
-            settlements={group.settlements.map((s) => ({
-              id: s.id,
-              fromUserId: s.fromUserId,
-              fromUserName: s.fromUser.displayName,
-              toUserId: s.toUserId,
-              toUserName: s.toUser.displayName,
-              amount: s.amount,
-              isConfirmed: s.isConfirmed,
-              createdAt: s.createdAt.toISOString(),
-              note: s.note,
-            }))}
-            expenses={approvedExpenses.map((e) => ({
-              id: e.id,
-              title: e.title,
-              amount: e.amount,
-              paidById: e.paidById,
-              date: e.date.toISOString(),
-              splits: e.splits.map((s) => ({
-                userId: s.userId,
-                amount: s.amount,
-              })),
-              category: e.category,
-            }))}
-          />
-
-          {isOwner && (
+          {/* Mời & Thêm thành viên */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <InviteSection inviteUrl={inviteUrl} inviteCode={group.inviteCode} />
             <AddMemberForm groupId={id} />
-          )}
+          </div>
         </TabsContent>
 
-        {/* Settings Tab */}
-        <TabsContent value="settings" className="space-y-4 mt-4">
-          <InviteSection inviteUrl={inviteUrl} inviteCode={group.inviteCode} />
-          {isOwner ? (
-            <>
-              <GroupSettingsForm
-                group={{
-                  id,
-                  name: group.name,
-                  description: group.description,
-                  avatar: group.avatar,
-                  zaloChatId: group.zaloChatId,
-                }}
-              />
-              <FundManagerSettings
-                groupId={id}
-                members={group.members.filter((m) => !m.isLeft).map((m) => ({
-                  userId: m.userId,
-                  user: {
-                    id: m.user.id,
-                    displayName: m.user.displayName,
-                    username: m.user.username,
-                  },
-                }))}
-                currentFundManagerId={group.fundManagerId}
-              />
-            </>
-          ) : (
-            <LeaveGroupCard groupId={id} groupName={group.name} />
+        {/* Tab 4: Settings Section */}
+        <TabsContent value="settings" className="space-y-4">
+          {/* Cấu hình Quản lý quỹ */}
+          {isOwner && (
+            <FundManagerSettings
+              groupId={id}
+              currentFundManagerId={group.fundManagerId}
+              members={group.members.filter((m) => !m.isLeft) as any}
+            />
           )}
+
+          {/* Cài đặt Nhóm */}
+          {isOwner && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  Thông tin & Cài đặt Nhóm
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <GroupSettingsForm group={group as any} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Thẻ Rời khỏi Nhóm */}
+          <LeaveGroupCard groupId={id} groupName={group.name} />
         </TabsContent>
       </Tabs>
     </div>

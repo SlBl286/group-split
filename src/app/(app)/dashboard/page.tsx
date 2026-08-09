@@ -66,33 +66,55 @@ export default async function DashboardPage({
   const formattedTo = format(endDate, "yyyy-MM-dd");
 
   // Truy vấn danh sách hoá đơn trong khoảng thời gian đã được duyệt (APPROVED) và người dùng có phần chia (split)
-  const expenses = await prisma.expense.findMany({
-    where: {
-      status: "APPROVED",
-      date: {
-        gte: startDate,
-        lte: endDate,
-      },
-      splits: {
-        some: {
-          userId,
+  let expenses: any[] = [];
+  try {
+    expenses = await prisma.expense.findMany({
+      where: {
+        status: "APPROVED",
+        date: {
+          gte: startDate,
+          lte: endDate,
+        },
+        splits: {
+          some: {
+            userId,
+          },
         },
       },
-    },
-    include: {
-      group: true,
-      categoryRel: true,
-      paidBy: true,
-      splits: {
+      include: {
+        group: true,
+        categoryRel: true,
+        paidBy: true,
+        splits: {
+          where: {
+            userId,
+          },
+        },
+      },
+      orderBy: {
+        date: "desc",
+      },
+    });
+  } catch (err) {
+    console.error("[Dashboard] Lỗi lấy danh sách expenses:", err);
+    try {
+      expenses = await prisma.expense.findMany({
         where: {
-          userId,
+          status: "APPROVED",
+          date: { gte: startDate, lte: endDate },
+          splits: { some: { userId } },
         },
-      },
-    },
-    orderBy: {
-      date: "desc",
-    },
-  });
+        include: {
+          group: true,
+          paidBy: true,
+          splits: { where: { userId } },
+        },
+        orderBy: { date: "desc" },
+      });
+    } catch (e) {
+      expenses = [];
+    }
+  }
 
   // 1. Tính toán các chỉ số cơ bản (Key Metrics)
   const totalSpending = expenses.reduce((sum, exp) => {
@@ -215,22 +237,47 @@ export default async function DashboardPage({
   }));
 
   // 5. Tính số tiền đang nợ hoặc cần được thanh toán theo nhóm (Lũy kế toàn thời gian)
-  const allMemberships = await prisma.groupMember.findMany({
-    where: { userId, isLeft: false },
-    include: {
-      group: {
-        include: {
-          members: { include: { user: true } },
-          expenses: {
-            where: { status: "APPROVED" },
-            include: { splits: true },
+  let allMemberships: any[] = [];
+  try {
+    allMemberships = await prisma.groupMember.findMany({
+      where: { userId, isLeft: false },
+      include: {
+        group: {
+          include: {
+            members: { include: { user: true } },
+            expenses: {
+              where: { status: "APPROVED" },
+              include: { splits: true },
+            },
+            settlements: { where: { isConfirmed: true } },
+            fundAllocations: true,
           },
-          settlements: { where: { isConfirmed: true } },
-          fundAllocations: true,
         },
       },
-    },
-  });
+    });
+  } catch (err) {
+    console.error("[Dashboard] Lỗi query allMemberships:", err);
+    try {
+      allMemberships = await prisma.groupMember.findMany({
+        where: { userId },
+        include: {
+          group: {
+            include: {
+              members: { include: { user: true } },
+              expenses: {
+                where: { status: "APPROVED" },
+                include: { splits: true },
+              },
+              settlements: { where: { isConfirmed: true } },
+              fundAllocations: true,
+            },
+          },
+        },
+      });
+    } catch (e) {
+      allMemberships = [];
+    }
+  }
 
   const groupBalances: Array<{
     groupId: string;
