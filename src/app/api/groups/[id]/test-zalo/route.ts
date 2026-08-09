@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { sendDirectTelegramTest } from "@/lib/telegram";
+import { sendDirectZaloTest } from "@/lib/zalo";
 
 export async function POST(
   req: NextRequest,
@@ -20,18 +20,18 @@ export async function POST(
       return NextResponse.json({ error: "Chỉ trưởng nhóm mới thực hiện được" }, { status: 403 });
     }
 
-    const { telegramChatId } = await req.json();
-    if (!telegramChatId || !telegramChatId.trim()) {
-      return NextResponse.json({ error: "Vui lòng nhập Telegram Chat ID" }, { status: 400 });
+    const { zaloChatId } = await req.json();
+    if (!zaloChatId || !zaloChatId.trim()) {
+      return NextResponse.json({ error: "Vui lòng nhập Zalo Chat ID" }, { status: 400 });
     }
 
-    await sendDirectTelegramTest(telegramChatId, group.name);
+    await sendDirectZaloTest(zaloChatId, group.name);
 
-    return NextResponse.json({ success: true, message: "Đã gửi tin nhắn thử nghiệm tới Telegram nhóm thành công!" });
+    return NextResponse.json({ success: true, message: "Đã gửi tin nhắn thử nghiệm tới Zalo nhóm thành công!" });
   } catch (err: any) {
-    console.error("Test telegram error:", err);
+    console.error("Test zalo error:", err);
     return NextResponse.json(
-      { error: err.message || "Không thể gửi tin nhắn thử nghiệm Telegram." },
+      { error: err.message || "Không thể gửi tin nhắn thử nghiệm Zalo." },
       { status: 400 }
     );
   }

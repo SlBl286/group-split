@@ -17,6 +17,9 @@ model User {
   avatar             String?
   createdAt          DateTime @default(now())
 
+  // Zalo Bot Personal Notification Chat ID
+  zaloChatId         String?
+
   // Bank Info for sharing and scanning QR
   bankName           String?
   accountNumber      String?
@@ -46,7 +49,7 @@ model Group {
   description String?
   avatar      String?
   inviteCode  String   @unique @default(cuid())
-  telegramChatId String?
+  zaloChatId     String?
   currency       String   @default("VND")
   createdAt      DateTime @default(now())
 

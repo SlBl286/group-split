@@ -4,9 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
 import { createNotification } from "@/lib/notifications";
 import { formatVND } from "@/lib/utils/format";
-
-import { sendGroupTelegramNotification } from "@/lib/telegram";
-import { formatVND } from "@/lib/utils/format";
+import { sendMultipleUsersZaloNotification } from "@/lib/zalo";
 
 export async function POST(
   req: NextRequest,
@@ -45,28 +43,31 @@ export async function POST(
     },
   });
 
-  // Send Notification to recipient (toUserId)
-  await createNotification({
-    userId: toUserId,
-    title: `Yêu cầu xác nhận nhận tiền`,
-    content: `${session.user.name || "Thành viên"} đã đánh dấu trả cho bạn số tiền ${formatVND(amount)}. Vui lòng kiểm tra và xác nhận.`,
-    type: "SETTLEMENT_PENDING",
-    link: `/groups/${groupId}`,
-    entityId: settlement.id,
-  });
+  // Nếu không phải trạng thái chờ quét QR nháp thì mới gửi thông báo
+  if (!note?.startsWith("[QR_PENDING]")) {
+    // Send Notification to recipient (toUserId)
+    await createNotification({
+      userId: toUserId,
+      title: `Yêu cầu xác nhận nhận tiền`,
+      content: `${session.user.name || "Thành viên"} đã đánh dấu trả cho bạn số tiền ${formatVND(amount)}. Vui lòng kiểm tra và xác nhận.`,
+      type: "SETTLEMENT_PENDING",
+      link: `/groups/${groupId}`,
+      entityId: settlement.id,
+    });
 
-  // Phát sóng tin nhắn cập nhật cho tất cả client
-  eventEmitter.emit(`group:${groupId}`, { type: "REFRESH" });
-
-  // Gửi thông báo Telegram
-  const cleanNote = note ? note.replace(/^\[QR_PENDING\]\s*/, "") : "Chuyển khoản / Tiền mặt";
-  const msg = `💸 <b>[Thông báo chuyển tiền]</b>
-<b>${settlement.fromUser.displayName}</b> ➔ <b>${settlement.toUser.displayName}</b>
-💰 Số tiền: <b>${formatVND(amount)}</b>
+    // Gửi thông báo Zalo Bot cá nhân
+    const cleanNote = note || "Chuyển khoản / Tiền mặt";
+    const msg = `💸 [Thông báo chuyển tiền]
+${settlement.fromUser.displayName} ➔ ${settlement.toUser.displayName}
+💰 Số tiền: ${formatVND(amount)}
 📝 Chi tiết: ${cleanNote}
 ⏳ Trạng thái: Đã chuyển (Chờ xác nhận)`;
 
-  sendGroupTelegramNotification(groupId, msg);
+    sendMultipleUsersZaloNotification([fromUserId, toUserId], msg);
+  }
+
+  // Phát sóng tin nhắn cập nhật cho tất cả client
+  eventEmitter.emit(`group:${groupId}`, { type: "REFRESH" });
 
   return NextResponse.json(settlement, { status: 201 });
 }

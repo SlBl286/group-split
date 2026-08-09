@@ -15,11 +15,14 @@ import { getInitials } from "@/lib/utils/format";
 import { Badge } from "@/components/ui/badge";
 import { BankSelect } from "@/components/ui/bank-select";
 import { SepayWizardDialog } from "@/components/settings/sepay-wizard-dialog";
+import { ProfileZaloSettings } from "@/components/settings/profile-zalo-settings";
 
 interface UserSettings {
   id: string;
+  username: string;
   displayName: string;
   avatar: string | null;
+  zaloChatId: string | null;
   bankName: string | null;
   accountNumber: string | null;
   accountName: string | null;
@@ -241,6 +244,9 @@ export function SettingsForm({ user }: { user: UserSettings }) {
             </div>
           </CardContent>
         </Card>
+
+        {/* Zalo Personal Notification Settings */}
+        <ProfileZaloSettings user={user} />
 
         {/* Bank Information */}
         <Card className="border border-border/80 shadow-xs">

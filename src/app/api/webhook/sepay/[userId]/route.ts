@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "node:crypto";
 import { eventEmitter } from "@/lib/events";
-import { sendGroupTelegramNotification } from "@/lib/telegram";
+import { sendMultipleUsersZaloNotification } from "@/lib/zalo";
 import { formatVND } from "@/lib/utils/format";
 
 export async function POST(
@@ -114,14 +114,17 @@ export async function POST(
           // Phát sóng tin nhắn cập nhật cho tất cả client
           eventEmitter.emit(`group:${settlement.groupId}`, { type: "REFRESH" });
 
-          // Gửi thông báo Telegram
-          const msg = `⚡ <b>[Duyệt tiền tự động VietQR]</b>
+          // Gửi thông báo Zalo Bot cá nhân
+          const msg = `⚡ [Duyệt tiền tự động VietQR]
 Hệ thống đã tự động gạch nợ thành công!
-<b>${updatedSettlement.fromUser.displayName}</b> ➔ <b>${updatedSettlement.toUser.displayName}</b>
-💰 Số tiền: <b>${formatVND(updatedSettlement.amount)}</b>
+${updatedSettlement.fromUser.displayName} ➔ ${updatedSettlement.toUser.displayName}
+💰 Số tiền: ${formatVND(updatedSettlement.amount)}
 📌 Xác thực tự động qua SePay 🟢`;
 
-          sendGroupTelegramNotification(settlement.groupId, msg);
+          sendMultipleUsersZaloNotification(
+            [updatedSettlement.fromUserId, updatedSettlement.toUserId],
+            msg
+          );
 
           console.log(`[SePay Webhook] Đã xác nhận tự động Settlement ID ${settlementId} số tiền ${data.transferAmount}đ.`);
         } else {

@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils/format";
 import { toast } from "sonner";
-import { Loader2, Settings, Camera, SendHorizontal, HelpCircle } from "lucide-react";
+import Link from "next/link";
+import { Loader2, Settings, Camera, SendHorizontal, HelpCircle, ExternalLink } from "lucide-react";
 import { CategorySettings } from "./category-settings";
 
 interface GroupSettingsFormProps {
@@ -18,17 +19,15 @@ interface GroupSettingsFormProps {
     name: string;
     description: string | null;
     avatar: string | null;
-    telegramChatId: string | null;
+    zaloChatId: string | null;
   };
 }
 
 export function GroupSettingsForm({ group }: GroupSettingsFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [testingTelegram, setTestingTelegram] = useState(false);
   const [name, setName] = useState(group.name);
   const [description, setDescription] = useState(group.description || "");
-  const [telegramChatId, setTelegramChatId] = useState(group.telegramChatId || "");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(group.avatar);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
@@ -46,34 +45,6 @@ export function GroupSettingsForm({ group }: GroupSettingsFormProps) {
     }
   }
 
-  async function handleTestTelegram() {
-    if (!telegramChatId.trim()) {
-      toast.error("Vui lòng nhập Telegram Chat ID trước khi bấm gửi thử");
-      return;
-    }
-
-    setTestingTelegram(true);
-    try {
-      const res = await fetch(`/api/groups/${group.id}/test-telegram`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ telegramChatId: telegramChatId.trim() }),
-      });
-
-      const data = await res.json();
-      setTestingTelegram(false);
-
-      if (res.ok) {
-        toast.success(data.message || "Đã gửi tin nhắn thử nghiệm thành công!");
-      } else {
-        toast.error(data.error || "Gửi tin nhắn thử nghiệm thất bại");
-      }
-    } catch (err) {
-      setTestingTelegram(false);
-      toast.error("Lỗi kết nối máy chủ");
-    }
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
@@ -86,7 +57,6 @@ export function GroupSettingsForm({ group }: GroupSettingsFormProps) {
     const formData = new FormData();
     formData.append("name", name.trim());
     formData.append("description", description.trim());
-    formData.append("telegramChatId", telegramChatId.trim());
     if (avatarFile) {
       formData.append("avatar", avatarFile);
     }
@@ -115,7 +85,6 @@ export function GroupSettingsForm({ group }: GroupSettingsFormProps) {
   const hasChanges =
     name !== group.name ||
     description !== (group.description || "") ||
-    telegramChatId !== (group.telegramChatId || "") ||
     avatarFile !== null;
 
   return (
@@ -127,7 +96,7 @@ export function GroupSettingsForm({ group }: GroupSettingsFormProps) {
             Cài đặt thông tin nhóm
           </CardTitle>
           <CardDescription className="text-xs">
-            Thay đổi ảnh đại diện, tên nhóm, mô tả và cấu hình kết nối Telegram Bot.
+            Thay đổi ảnh đại diện, tên nhóm, mô tả và cấu hình kết nối Zalo Bot.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -182,39 +151,24 @@ export function GroupSettingsForm({ group }: GroupSettingsFormProps) {
               />
             </div>
 
-            {/* Telegram Notification Setting */}
-            <div className="space-y-2 pt-2 border-t">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="group-telegram" className="text-sm font-semibold flex items-center gap-1.5">
-                  ✈️ Telegram Chat ID
-                </Label>
-                <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <HelpCircle className="h-3.5 w-3.5" />
-                  <span>Cách lấy: Thêm Bot vào nhóm Telegram ➔ Gửi tin ➔ Lấy ID (ví dụ: -100xxx)</span>
+            {/* Zalo Notification Setting Info Banner */}
+            <div className="pt-2 border-t space-y-2">
+              <div className="p-3 rounded-xl border border-blue-500/20 bg-blue-500/5 text-xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                    💙 Thông báo Zalo Cá nhân
+                  </span>
+                  <Link
+                    href="/settings"
+                    className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                  >
+                    Vào Cài đặt cá nhân
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  id="group-telegram"
-                  placeholder="Nhập Telegram Chat ID (VD: -100123456789)..."
-                  value={telegramChatId}
-                  onChange={(e) => setTelegramChatId(e.target.value)}
-                  className="h-11 font-mono text-xs"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleTestTelegram}
-                  disabled={testingTelegram || !telegramChatId.trim()}
-                  className="h-11 px-3 gap-1 font-semibold text-xs shrink-0 cursor-pointer"
-                >
-                  {testingTelegram ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <SendHorizontal className="h-4 w-4 text-sky-500" />
-                  )}
-                  Gửi thử
-                </Button>
+                <p className="text-muted-foreground leading-relaxed text-[11px]">
+                  Hệ thống sử dụng thông báo Zalo cá nhân trực tiếp cho từng người dùng. Mỗi thành viên có thể liên kết Zalo tại trang Cài đặt tài khoản của mình.
+                </p>
               </div>
             </div>
 

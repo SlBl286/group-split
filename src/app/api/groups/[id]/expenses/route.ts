@@ -4,9 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
 import { createNotification } from "@/lib/notifications";
 import { formatVND } from "@/lib/utils/format";
-
-import { sendGroupTelegramNotification } from "@/lib/telegram";
-import { formatVND } from "@/lib/utils/format";
+import { sendMultipleUsersZaloNotification } from "@/lib/zalo";
 
 export async function POST(
   req: NextRequest,
@@ -29,9 +27,6 @@ export async function POST(
     where: { userId_groupId: { userId, groupId } },
   });
   if (!membership) return NextResponse.json({ error: "Không thuộc nhóm này" }, { status: 403 });
-
-  const group = await prisma.group.findUnique({ where: { id: groupId } });
-  if (!group) return NextResponse.json({ error: "Nhóm không tồn tại" }, { status: 404 });
 
   const { title, description, amount, paidById, splitType, date, splits, category, categoryId } =
     await req.json();
@@ -87,16 +82,17 @@ export async function POST(
     // Phát sóng tin nhắn cập nhật cho tất cả client
     eventEmitter.emit(`group:${groupId}`, { type: "REFRESH" });
 
-    // Gửi thông báo qua Telegram
+    // Gửi thông báo qua Zalo Bot cá nhân
     const statusText = isAutoApproved ? "🟢 Đã tự động duyệt" : "⏳ Chờ Trưởng nhóm duyệt";
-    const msg = `🧾 <b>[Hóa đơn mới]</b>
-<b>${title}</b>
-💰 Số tiền: <b>${formatVND(amount)}</b>
-👤 Người chi: <b>${expense.paidBy.displayName}</b>
+    const msg = `🧾 [Hóa đơn mới]
+${title}
+💰 Số tiền: ${formatVND(amount)}
+👤 Người chi: ${expense.paidBy.displayName}
 🏷️ Danh mục: ${category || "Khác"}
 📌 Trạng thái: ${statusText}`;
 
-    sendGroupTelegramNotification(groupId, msg);
+    const targetUserIds = Array.from(new Set([paidById, ...splits.map((s: any) => s.userId)]));
+    sendMultipleUsersZaloNotification(targetUserIds, msg);
 
     return NextResponse.json(expense, { status: 201 });
   } catch (error: any) {

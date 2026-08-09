@@ -4,9 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
 import { createNotification } from "@/lib/notifications";
 import { formatVND } from "@/lib/utils/format";
-
-import { sendGroupTelegramNotification } from "@/lib/telegram";
-import { formatVND } from "@/lib/utils/format";
+import { sendMultipleUsersZaloNotification } from "@/lib/zalo";
 
 export async function PATCH(
   req: NextRequest,
@@ -52,12 +50,12 @@ export async function PATCH(
   // Phát sóng tin nhắn cập nhật cho tất cả client
   eventEmitter.emit(`group:${settlement.groupId}`, { type: "REFRESH" });
 
-  // Gửi thông báo Telegram
-  const msg = `🎉 <b>[Xác nhận nhận tiền]</b>
-<b>${updated.toUser.displayName}</b> đã xác nhận nhận <b>${formatVND(updated.amount)}</b> từ <b>${updated.fromUser.displayName}</b>.
+  // Gửi thông báo Zalo Bot cá nhân
+  const msg = `🎉 [Xác nhận nhận tiền]
+${updated.toUser.displayName} đã xác nhận nhận ${formatVND(updated.amount)} từ ${updated.fromUser.displayName}.
 📌 Giao dịch hoàn tất!`;
 
-  sendGroupTelegramNotification(updated.groupId, msg);
+  sendMultipleUsersZaloNotification([updated.fromUserId, updated.toUserId], msg);
 
   return NextResponse.json(updated);
 }

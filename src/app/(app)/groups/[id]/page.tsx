@@ -442,7 +442,7 @@ export default async function GroupDetailPage({
                   name: group.name,
                   description: group.description,
                   avatar: group.avatar,
-                  telegramChatId: group.telegramChatId,
+                  zaloChatId: group.zaloChatId,
                 }}
               />
               <FundManagerSettings

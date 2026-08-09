@@ -28,8 +28,11 @@ export function GroupRealtimeListener({ groupId }: GroupRealtimeListenerProps) {
       }
     };
 
-    eventSource.onerror = (err) => {
-      console.warn("[Realtime] Lỗi kết nối SSE, tự động kết nối lại...", err);
+    eventSource.onerror = () => {
+      // EventSource tự động kết nối lại khi readyState === CONNECTING (0)
+      if (eventSource.readyState === EventSource.CLOSED) {
+        console.log("[Realtime] Kết nối SSE đã đóng.");
+      }
     };
 
     // Đóng kết nối khi component bị unmount

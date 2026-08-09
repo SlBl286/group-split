@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
+import { createNotification } from "@/lib/notifications";
+import { sendMultipleUsersZaloNotification } from "@/lib/zalo";
+import { formatVND } from "@/lib/utils/format";
 
 export async function DELETE(
   req: NextRequest,
@@ -68,7 +71,31 @@ export async function PATCH(
     const updated = await prisma.settlement.update({
       where: { id },
       data: { note },
+      include: {
+        fromUser: { select: { displayName: true } },
+        toUser: { select: { displayName: true } },
+      },
     });
+
+    // Nếu chuyển từ trạng thái nháp [QR_PENDING] sang xác nhận đã chuyển xong thủ công
+    if (settlement.note?.startsWith("[QR_PENDING]") && !note?.startsWith("[QR_PENDING]")) {
+      await createNotification({
+        userId: settlement.toUserId,
+        title: `Yêu cầu xác nhận nhận tiền`,
+        content: `${session.user.name || "Thành viên"} đã đánh dấu trả cho bạn số tiền ${formatVND(settlement.amount)}. Vui lòng kiểm tra và xác nhận.`,
+        type: "SETTLEMENT_PENDING",
+        link: `/groups/${settlement.groupId}`,
+        entityId: settlement.id,
+      });
+
+      const msg = `💸 [Thông báo chuyển tiền]
+${updated.fromUser.displayName} ➔ ${updated.toUser.displayName}
+💰 Số tiền: ${formatVND(updated.amount)}
+📝 Chi tiết: ${note || "Chuyển khoản VietQR"}
+⏳ Trạng thái: Đã chuyển (Chờ xác nhận)`;
+
+      sendMultipleUsersZaloNotification([settlement.fromUserId, settlement.toUserId], msg);
+    }
 
     // Phát sóng tin nhắn cập nhật cho tất cả client
     eventEmitter.emit(`group:${settlement.groupId}`, { type: "REFRESH" });

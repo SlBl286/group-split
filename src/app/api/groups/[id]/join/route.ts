@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { sendGroupTelegramNotification } from "@/lib/telegram";
+import { sendUserZaloNotification } from "@/lib/zalo";
 
 export async function POST(
   req: NextRequest,
@@ -27,11 +27,11 @@ export async function POST(
       include: { user: { select: { displayName: true } } },
     });
 
-    // Gửi thông báo Telegram
-    const msg = `👋 <b>[Thành viên mới]</b>
-<b>${member.user.displayName}</b> vừa gia nhập nhóm! 🎉`;
+    // Gửi thông báo Zalo Bot cá nhân cho Trưởng nhóm
+    const msg = `👋 [Thành viên mới gia nhập nhóm ${group.name}]
+${member.user.displayName} vừa gia nhập nhóm của bạn! 🎉`;
 
-    sendGroupTelegramNotification(groupId, msg);
+    sendUserZaloNotification(group.ownerId, msg);
 
     return NextResponse.json(member, { status: 201 });
   } catch (error: any) {

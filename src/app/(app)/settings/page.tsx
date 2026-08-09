@@ -15,8 +15,10 @@ export default async function SettingsPage() {
     where: { id: session.user.id! },
     select: {
       id: true,
+      username: true,
       displayName: true,
       avatar: true,
+      zaloChatId: true,
       bankName: true,
       accountNumber: true,
       accountName: true,
