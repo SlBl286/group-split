@@ -11,20 +11,43 @@ export default async function SettingsPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id! },
-    select: {
-      id: true,
-      username: true,
-      displayName: true,
-      avatar: true,
-      zaloChatId: true,
-      bankName: true,
-      accountNumber: true,
-      accountName: true,
-      sepayWebhookSecret: true,
-    },
-  });
+  let user: any = null;
+
+  try {
+    user = await prisma.user.findUnique({
+      where: { id: session.user.id! },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatar: true,
+        zaloChatId: true,
+        bankName: true,
+        accountNumber: true,
+        accountName: true,
+        sepayWebhookSecret: true,
+      },
+    });
+  } catch (err) {
+    console.error("[SettingsPage] Lỗi truy vấn zaloChatId (DB chưa migration):", err);
+    // Fallback an toàn nếu database trên Portainer chưa kịp nạp cột zaloChatId
+    const baseUser = await prisma.user.findUnique({
+      where: { id: session.user.id! },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatar: true,
+        bankName: true,
+        accountNumber: true,
+        accountName: true,
+        sepayWebhookSecret: true,
+      },
+    });
+    if (baseUser) {
+      user = { ...baseUser, zaloChatId: null };
+    }
+  }
 
   if (!user) redirect("/login");
 
