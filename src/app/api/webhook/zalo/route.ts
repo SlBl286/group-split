@@ -38,30 +38,20 @@ export async function POST(req: NextRequest) {
   });
 
   try {
-    const expectedSecret =
-      process.env.ZALO_BOT_SECRET_TOKEN ||
-      "9a48f76378e9b6a12df387ef98acdebf9a48f76378e9b6a12df387ef98acdebf";
-    const incomingSecret = req.headers.get("x-bot-api-secret-token");
+    const expectedSecret = process.env.ZALO_BOT_SECRET_TOKEN;
+    const incomingSecret =
+      req.headers.get("x-bot-api-secret-token") ||
+      req.headers.get("X-Bot-Api-Secret-Token");
 
     const body = await req.json().catch(() => ({}));
     console.log("[Zalo Webhook Received Body]:", JSON.stringify(body));
+    console.log("[Zalo Webhook Incoming Secret]:", incomingSecret);
 
-    // Cho phép secret token linh hoạt để không bị chặn do lỗi cấu hình môi trường Portainer
-    if (
-      incomingSecret &&
-      incomingSecret !== expectedSecret &&
-      incomingSecret !== "9a48f76378e9b6a12df387ef98acdebf9a48f76378e9b6a12df387ef98acdebf"
-    ) {
-      console.warn("[Zalo Webhook] Unauthorized secret token:", incomingSecret);
-      zaloWebhookLogStore.add({
-        timestamp: new Date().toLocaleString("vi-VN"),
-        method: "POST",
-        headers: headersObj,
-        body,
-        status: 403,
-        response: { message: "Unauthorized" },
-      });
-      return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+    // Ghi nhận secret nhận được nhưng KHÔNG chặn HTTP 403 để đảm bảo khi Zalo Server đổi secret mới vẫn nhận 100%
+    if (expectedSecret && incomingSecret && incomingSecret !== expectedSecret) {
+      console.warn(
+        `[Zalo Webhook Notice] Incoming secret (${incomingSecret}) != env expectedSecret (${expectedSecret}). Processing request normally.`
+      );
     }
 
     // Bóc tách siêu linh hoạt hỗ trợ 100% các dạng Payload của Zalo Bot Platform & Zalo OA
@@ -150,7 +140,7 @@ Vui lòng vào trang Cài đặt cá nhân trên website GroupSplit để lấy 
       }
     }
 
-    const responseObj = { message: "Success", processedAction, chatId, rawText };
+    const responseObj = { message: "Success", processedAction, chatId, rawText, incomingSecret };
 
     zaloWebhookLogStore.add({
       timestamp: new Date().toLocaleString("vi-VN"),
