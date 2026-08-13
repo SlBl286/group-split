@@ -9,13 +9,27 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  ADMIN
+  USER
+}
+
 model User {
   id                 String   @id @default(cuid())
   username           String   @unique
   passwordHash       String
   displayName        String
   avatar             String?
+  role               UserRole @default(USER)
   createdAt          DateTime @default(now())
+
+  // Email Verification & Password Reset
+  email                    String?   @unique
+  isEmailVerified          Boolean   @default(false)
+  emailVerificationToken   String?
+  emailVerificationExpires DateTime?
+  passwordResetToken       String?
+  passwordResetExpires     DateTime?
 
   // Zalo Bot Personal Notification Chat ID
   zaloChatId         String?
@@ -41,6 +55,12 @@ model User {
   receivedInvitations     GroupInvitation[] @relation("GroupInvitationInvited")
   joinRequests            GroupJoinRequest[]
   notifications           Notification[]    @relation("NotificationRecipient")
+}
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 model Group {

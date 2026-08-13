@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/brand-logo";
 import {
@@ -9,24 +10,37 @@ import {
   Users,
   Plus,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/groups", label: "Nhóm", icon: Users },
-  { href: "/settings", label: "Cài đặt", icon: Settings },
-];
-
-// Bottom nav for mobile
 export function BottomNav() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const user = session?.user as any;
+  const isAdmin = user?.username === "qy286" || user?.role === "ADMIN";
+
+  const items = [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/groups", label: "Nhóm", icon: Users },
+    { href: "/settings", label: "Cài đặt", icon: Settings },
+    ...(isAdmin
+      ? [{ href: "/admin", label: "Quản trị", icon: ShieldCheck }]
+      : []),
+  ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:hidden">
-      <div className="grid grid-cols-3 items-center justify-items-center h-16 px-2">
-        {navItems.map((item) => {
+      <div
+        className={cn(
+          "grid items-center justify-items-center h-16 px-2",
+          isAdmin ? "grid-cols-4" : "grid-cols-3"
+        )}
+      >
+        {items.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+          const isActive =
+            pathname === item.href ||
+            (item.href !== "/dashboard" && pathname.startsWith(item.href));
           return (
             <Link
               key={item.href}
@@ -48,9 +62,20 @@ export function BottomNav() {
   );
 }
 
-// Sidebar for desktop
 export function Sidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const user = session?.user as any;
+  const isAdmin = user?.username === "qy286" || user?.role === "ADMIN";
+
+  const items = [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/groups", label: "Nhóm", icon: Users },
+    { href: "/settings", label: "Cài đặt", icon: Settings },
+    ...(isAdmin
+      ? [{ href: "/admin", label: "Quản trị Admin", icon: ShieldCheck }]
+      : []),
+  ];
 
   return (
     <aside className="hidden md:flex flex-col w-64 min-h-screen border-r bg-background/95 backdrop-blur">
@@ -59,9 +84,11 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+          const isActive =
+            pathname === item.href ||
+            (item.href !== "/dashboard" && pathname.startsWith(item.href));
           return (
             <Link
               key={item.href}
@@ -69,7 +96,7 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
                 isActive
-                  ? "bg-primary text-primary-foreground shadow-sm"
+                  ? "bg-primary text-primary-foreground shadow-sm font-bold"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
             >
@@ -83,24 +110,25 @@ export function Sidebar() {
   );
 }
 
-// Floating button to create new group or add expense contextually
 export function FloatingCreateGroupButton() {
   const pathname = usePathname();
 
-  // Hide the floating button on the group creation, join, or new expense pages
   if (
-    pathname === "/groups/new" || 
-    pathname.includes("/expenses/new") || 
-    pathname.includes("/groups/join")
+    pathname === "/groups/new" ||
+    pathname.includes("/expenses/new") ||
+    pathname.includes("/groups/join") ||
+    pathname.startsWith("/admin")
   ) {
     return null;
   }
 
-  // Check if we are inside a specific group detail page: /groups/[id]
   const groupMatch = pathname.match(/^\/groups\/([^/]+)$/);
-  const isGroupDetail = groupMatch && groupMatch[1] !== "new" && groupMatch[1] !== "join";
+  const isGroupDetail =
+    groupMatch && groupMatch[1] !== "new" && groupMatch[1] !== "join";
 
-  const href = isGroupDetail ? `/groups/${groupMatch[1]}/expenses/new` : "/groups/new";
+  const href = isGroupDetail
+    ? `/groups/${groupMatch[1]}/expenses/new`
+    : "/groups/new";
   const label = isGroupDetail ? "Thêm hoá đơn" : "Tạo nhóm mới";
 
   return (
@@ -110,8 +138,9 @@ export function FloatingCreateGroupButton() {
       aria-label={label}
     >
       <Plus className="h-6 w-6 md:h-4 md:w-4 transition-transform group-hover/fab:rotate-90 duration-300" />
-      <span className="hidden md:inline text-sm font-bold tracking-wide">{label}</span>
+      <span className="hidden md:inline text-sm font-bold tracking-wide">
+        {label}
+      </span>
     </Link>
   );
 }
-

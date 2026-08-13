@@ -7,19 +7,32 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Eye, EyeOff } from "lucide-react";
+import { CaptchaChallenge } from "./captcha-challenge";
 
 export function RegisterForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [captchaData, setCaptchaData] = useState<{
+    id: string;
+    answer: string;
+    hash: string;
+  }>({ id: "", answer: "", hash: "" });
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    if (!captchaData.answer) {
+      toast.error("Vui lòng giải câu đố CAPTCHA trước khi tạo tài khoản");
+      return;
+    }
+
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const username = formData.get("username") as string;
     const displayName = formData.get("displayName") as string;
+    const username = formData.get("username") as string;
+    const email = formData.get("email") as string;
     const password = formData.get("password") as string;
     const confirmPassword = formData.get("confirmPassword") as string;
 
@@ -32,7 +45,15 @@ export function RegisterForm() {
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, displayName, password }),
+      body: JSON.stringify({
+        username,
+        displayName,
+        email,
+        password,
+        captchaId: captchaData.id,
+        captchaAnswer: captchaData.answer,
+        captchaHash: captchaData.hash,
+      }),
     });
 
     const data = await res.json();
@@ -41,8 +62,12 @@ export function RegisterForm() {
     if (!res.ok) {
       toast.error(data.error || "Đăng ký thất bại");
     } else {
-      toast.success("Đăng ký thành công! Đang chuyển hướng...");
-      router.push("/login");
+      toast.success(data.message || "Đăng ký thành công!");
+      if (data.requiresVerification) {
+        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+      } else {
+        router.push("/login");
+      }
     }
   }
 
@@ -63,7 +88,7 @@ export function RegisterForm() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="username">Tên đăng nhập</Label>
+        <Label htmlFor="username">Tên đăng nhập (Username)</Label>
         <Input
           id="username"
           name="username"
@@ -80,15 +105,28 @@ export function RegisterForm() {
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="email">Địa chỉ Email (Cần xác thực OTP)</Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          placeholder="example@domain.com"
+          required
+          autoComplete="email"
+          className="h-11"
+        />
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="reg-password">Mật khẩu</Label>
         <div className="relative">
           <Input
             id="reg-password"
             name="password"
             type={showPassword ? "text" : "password"}
-            placeholder="Tối thiểu 6 ký tự"
+            placeholder="Tối thiểu 8 ký tự, bao gồm chữ & số"
             required
-            minLength={6}
+            minLength={8}
             className="h-11 pr-10"
           />
           <Button
@@ -119,7 +157,10 @@ export function RegisterForm() {
         />
       </div>
 
-      <Button type="submit" className="w-full h-11" disabled={loading}>
+      {/* CAPTCHA Challenge chống DDoS */}
+      <CaptchaChallenge onCaptchaChange={setCaptchaData} />
+
+      <Button type="submit" className="w-full h-11 font-bold" disabled={loading}>
         {loading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

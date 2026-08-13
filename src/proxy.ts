@@ -7,8 +7,24 @@ const { auth } = NextAuth(authConfig);
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth;
+  const user = req.auth?.user as any;
 
-  const publicRoutes = ["/", "/login", "/register"];
+  // OWASP Security Headers
+  const response = NextResponse.next();
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("X-XSS-Protection", "1; mode=block");
+
+  const publicRoutes = [
+    "/",
+    "/login",
+    "/register",
+    "/verify-email",
+    "/forgot-password",
+    "/reset-password",
+  ];
+
   const isPublicRoute = publicRoutes.some((route) => pathname === route);
   const isInviteRoute = pathname.startsWith("/groups/join/");
   const isApiAuth = pathname.startsWith("/api/auth");
@@ -21,21 +37,37 @@ export default auth((req) => {
     pathname.endsWith(".ico") ||
     pathname.endsWith(".svg");
 
-  // Bỏ qua xác thực cho api auth, static assets, các routes công khai, webhook từ sepay và các tệp tải lên
-  if (isApiAuth || isStaticFile) return NextResponse.next();
+  if (isApiAuth || isStaticFile) return response;
   if (isPublicRoute || isInviteRoute || isWebhookRoute || isUploadsRoute) {
-    return NextResponse.next();
+    return response;
   }
 
+  // Yêu cầu đăng nhập cho tất cả các đường dẫn riêng tư
   if (!isLoggedIn) {
-    // Trả về JSON 401 đối với các API endpoints thay vì redirect sang HTML trang /login
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
     return NextResponse.redirect(new URL("/login", req.nextUrl));
   }
 
-  return NextResponse.next();
+  // Bảo vệ đường dẫn Admin và zalo-helper (Chỉ cho phép Admin hoặc user qy286)
+  const isAdmin = user?.username === "qy286" || user?.role === "ADMIN";
+  const isAdminOnlyRoute =
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/api/admin") ||
+    pathname.startsWith("/zalo-helper");
+
+  if (isAdminOnlyRoute && !isAdmin) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Quyền truy cập bị từ chối. Chỉ dành cho Quản trị viên (qy286)!" },
+        { status: 403 }
+      );
+    }
+    return NextResponse.redirect(new URL("/dashboard", req.nextUrl));
+  }
+
+  return response;
 });
 
 export const config = {
