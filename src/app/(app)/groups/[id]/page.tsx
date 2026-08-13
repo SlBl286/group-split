@@ -224,47 +224,9 @@ export default async function GroupDetailPage({
 
         {/* Tab 1: Expenses List */}
         <TabsContent value="expenses" className="space-y-4">
-          {/* Pending Approval Section */}
-          {pendingExpenses.length > 0 && (
-            <Card className="border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold flex items-center gap-2 text-amber-600 dark:text-amber-400">
-                  <Clock className="h-4 w-4" />
-                  Hóa đơn chờ duyệt ({pendingExpenses.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {pendingExpenses.map((expense) => (
-                  <div
-                    key={expense.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border bg-card"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm">{expense.title}</span>
-                        <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/40">
-                          Chờ duyệt
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {formatVND(expense.amount)} • Tạo bởi{" "}
-                        <span className="font-medium text-foreground">{expense.createdBy.displayName}</span> •{" "}
-                        {formatDate(expense.date)}
-                      </p>
-                    </div>
-                    {isOwner && (
-                      <ExpenseApproveButton expenseId={expense.id} />
-                    )}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Approved Expenses */}
           <ExpensesList
             groupId={id}
-            expenses={approvedExpenses as any}
+            expenses={group.expenses as any}
             currentUserId={userId}
             currentUserName={session!.user.name || ""}
             isOwner={isOwner}

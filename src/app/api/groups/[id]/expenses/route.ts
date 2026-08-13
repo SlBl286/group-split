@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
 import { createNotification } from "@/lib/notifications";
 import { formatVND } from "@/lib/utils/format";
-import { sendMultipleUsersZaloNotification } from "@/lib/zalo";
+import { sendUserZaloNotification } from "@/lib/zalo";
 
 export async function POST(
   req: NextRequest,
@@ -82,17 +82,30 @@ export async function POST(
     // Phát sóng tin nhắn cập nhật cho tất cả client
     eventEmitter.emit(`group:${groupId}`, { type: "REFRESH" });
 
-    // Gửi thông báo qua Zalo Bot cá nhân
+    // Gửi thông báo Zalo Bot cá nhân cho từng người dùng kèm số tiền phần của người đó
     const statusText = isAutoApproved ? "🟢 Đã tự động duyệt" : "⏳ Chờ Trưởng nhóm duyệt";
-    const msg = `🧾 [Hóa đơn mới]
-${title}
-💰 Số tiền: ${formatVND(amount)}
-👤 Người chi: ${expense.paidBy.displayName}
+    const targetUserIds = Array.from(
+      new Set([paidById, ...expense.splits.map((s) => s.userId)])
+    );
+
+    for (const targetUserId of targetUserIds) {
+      const userSplit = expense.splits.find((s) => s.userId === targetUserId);
+      const isPayer = targetUserId === paidById;
+      const payerNote = isPayer ? " (Bạn đã trả)" : "";
+
+      const shareLine = userSplit
+        ? `💵 Phần của bạn: ${formatVND(userSplit.amount)}`
+        : "";
+
+      const msg = `🧾 [Hóa đơn mới]
+📌 ${title}
+💰 Tổng hóa đơn: ${formatVND(amount)}
+${shareLine ? `${shareLine}\n` : ""}👤 Người chi: ${expense.paidBy.displayName}${payerNote}
 🏷️ Danh mục: ${category || "Khác"}
 📌 Trạng thái: ${statusText}`;
 
-    const targetUserIds = Array.from(new Set([paidById, ...splits.map((s: any) => s.userId)]));
-    sendMultipleUsersZaloNotification(targetUserIds, msg);
+      sendUserZaloNotification(targetUserId, msg);
+    }
 
     return NextResponse.json(expense, { status: 201 });
   } catch (error: any) {
