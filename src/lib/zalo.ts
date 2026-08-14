@@ -182,3 +182,25 @@ export async function sendMultipleUsersZaloNotification(
     console.error("[Zalo Axios] Lỗi khi gửi thông báo nhiều người dùng:", err);
   }
 }
+
+/**
+ * Gửi mã OTP xác nhận Đổi Mật Khẩu qua Zalo Bot cá nhân
+ */
+export async function sendPasswordChangeZaloOtp(
+  chatId: string,
+  otpCode: string,
+  username: string
+) {
+  const messageText = `🔐 [GroupSplit] Mã OTP Xác nhận Đổi Mật Khẩu
+
+Xin chào @${username},
+Bạn vừa yêu cầu thay đổi mật khẩu cho tài khoản GroupSplit của mình.
+
+Mã OTP xác nhận của bạn là: 👉 ${otpCode} 👈
+(Mã có hiệu lực trong vòng 15 phút)
+
+⚠️ Nếu không phải bạn thực hiện yêu cầu này, vui lòng bỏ qua tin nhắn này hoặc kiểm tra lại bảo mật tài khoản.`;
+
+  return sendDirectZaloMessage(chatId, messageText);
+}
+

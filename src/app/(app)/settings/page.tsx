@@ -20,6 +20,8 @@ export default async function SettingsPage() {
         id: true,
         username: true,
         displayName: true,
+        email: true,
+        isEmailVerified: true,
         avatar: true,
         zaloChatId: true,
         bankName: true,
@@ -29,8 +31,8 @@ export default async function SettingsPage() {
       },
     });
   } catch (err) {
-    console.error("[SettingsPage] Lỗi truy vấn zaloChatId (DB chưa migration):", err);
-    // Fallback an toàn nếu database trên Portainer chưa kịp nạp cột zaloChatId
+    console.error("[SettingsPage] Lỗi truy vấn:", err);
+    // Fallback an toàn nếu database trên Portainer chưa kịp nạp một số cột
     const baseUser = await prisma.user.findUnique({
       where: { id: session.user.id! },
       select: {
@@ -45,7 +47,7 @@ export default async function SettingsPage() {
       },
     });
     if (baseUser) {
-      user = { ...baseUser, zaloChatId: null };
+      user = { ...baseUser, email: null, isEmailVerified: false, zaloChatId: null };
     }
   }
 

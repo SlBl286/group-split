@@ -41,6 +41,10 @@ export async function GET() {
         totalExpenses,
         totalSettlements,
       },
+      resend: {
+        apiKey: settingsMap.RESEND_API || process.env.RESEND_API || process.env.RESEND_API_KEY || "",
+        from: settingsMap.EMAIL_FROM || process.env.EMAIL_FROM || process.env.RESEND_FROM || "GroupSplit <noreply@qy286.me>",
+      },
       smtp: {
         host: settingsMap.SMTP_HOST || process.env.SMTP_HOST || "",
         port: settingsMap.SMTP_PORT || process.env.SMTP_PORT || "587",
@@ -55,7 +59,7 @@ export async function GET() {
   }
 }
 
-// 2. POST: Lưu cấu hình SMTP trong bảng SystemSetting
+// 2. POST: Lưu cấu hình Resend / SMTP trong bảng SystemSetting
 export async function POST(req: NextRequest) {
   const admin = await verifyAdmin();
   if (!admin) {
@@ -63,16 +67,35 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { host, port, user, pass, from, secure } = await req.json();
+    const body = await req.json();
+    const { host, port, user, pass, from, secure, resendApiKey, resendFrom } = body;
 
-    const updates = [
-      { key: "SMTP_HOST", value: host || "" },
-      { key: "SMTP_PORT", value: String(port || "587") },
-      { key: "SMTP_USER", value: user || "" },
-      { key: "SMTP_PASS", value: pass || "" },
-      { key: "SMTP_FROM", value: from || "" },
-      { key: "SMTP_SECURE", value: String(!!secure) },
-    ];
+    const updates: { key: string; value: string }[] = [];
+
+    if (resendApiKey !== undefined) {
+      updates.push({ key: "RESEND_API", value: resendApiKey || "" });
+    }
+    if (resendFrom !== undefined) {
+      updates.push({ key: "EMAIL_FROM", value: resendFrom || "" });
+    }
+    if (host !== undefined) {
+      updates.push({ key: "SMTP_HOST", value: host || "" });
+    }
+    if (port !== undefined) {
+      updates.push({ key: "SMTP_PORT", value: String(port || "587") });
+    }
+    if (user !== undefined) {
+      updates.push({ key: "SMTP_USER", value: user || "" });
+    }
+    if (pass !== undefined) {
+      updates.push({ key: "SMTP_PASS", value: pass || "" });
+    }
+    if (from !== undefined) {
+      updates.push({ key: "SMTP_FROM", value: from || "" });
+    }
+    if (secure !== undefined) {
+      updates.push({ key: "SMTP_SECURE", value: String(!!secure) });
+    }
 
     for (const item of updates) {
       await prisma.systemSetting.upsert({
@@ -84,7 +107,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Đã lưu cấu hình Email SMTP thành công!",
+      message: "Đã lưu cấu hình Email thành công!",
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

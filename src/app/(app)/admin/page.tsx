@@ -5,27 +5,32 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import {
-  ShieldCheck,
-  Users,
-  Mail,
-  Send,
   Loader2,
-  RefreshCw,
-  KeyRound,
-  CheckCircle2,
-  XCircle,
-  Receipt,
-  Building2,
-  Bot,
+  ShieldCheck,
+  Mail,
+  Users,
+  Send,
+  Lock,
+  UserCheck,
+  UserX,
   Search,
+  Building2,
+  Receipt,
+  ArrowRightLeft,
+  Bot,
+  RefreshCw,
+  Sparkles,
+  Zap,
   ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
+import { getInitials } from "@/lib/utils/format";
 
 interface UserItem {
   id: string;
@@ -34,8 +39,10 @@ interface UserItem {
   email: string | null;
   isEmailVerified: boolean;
   role: "ADMIN" | "USER";
+  avatar: string | null;
   createdAt: string;
   _count: {
+    ownedGroups: number;
     groupMemberships: number;
     paidExpenses: number;
   };
@@ -43,7 +50,7 @@ interface UserItem {
 
 export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(true);
-  const [savingSmtp, setSavingSmtp] = useState(false);
+  const [savingEmail, setSavingEmail] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
   const [testEmailAddr, setTestEmailAddr] = useState("");
 
@@ -52,6 +59,11 @@ export default function AdminSettingsPage() {
     totalGroups: 0,
     totalExpenses: 0,
     totalSettlements: 0,
+  });
+
+  const [resend, setResend] = useState({
+    apiKey: "",
+    from: "GroupSplit <noreply@qy286.me>",
   });
 
   const [smtp, setSmtp] = useState({
@@ -67,7 +79,7 @@ export default function AdminSettingsPage() {
   const [userSearch, setUserSearch] = useState("");
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
-  // Lấy thông tin admin stats & SMTP
+  // Lấy thông tin admin stats & Email
   async function fetchAdminData() {
     setLoading(true);
     try {
@@ -77,14 +89,22 @@ export default function AdminSettingsPage() {
 
       if (res.ok) {
         setStats(data.stats);
-        setSmtp({
-          host: data.smtp.host || "",
-          port: String(data.smtp.port || "587"),
-          user: data.smtp.user || "",
-          pass: data.smtp.pass || "",
-          from: data.smtp.from || "",
-          secure: data.smtp.secure === "true",
-        });
+        if (data.resend) {
+          setResend({
+            apiKey: data.resend.apiKey || "",
+            from: data.resend.from || "GroupSplit <noreply@qy286.me>",
+          });
+        }
+        if (data.smtp) {
+          setSmtp({
+            host: data.smtp.host || "",
+            port: String(data.smtp.port || "587"),
+            user: data.smtp.user || "",
+            pass: data.smtp.pass || "",
+            from: data.smtp.from || "",
+            secure: data.smtp.secure === "true",
+          });
+        }
       } else {
         toast.error(data.error || "Không thể tải dữ liệu Admin");
       }
@@ -111,28 +131,32 @@ export default function AdminSettingsPage() {
     fetchUsers();
   }, []);
 
-  // Lưu cấu hình SMTP
-  async function handleSaveSmtp(e: React.FormEvent) {
+  // Lưu cấu hình Email (Resend & SMTP)
+  async function handleSaveEmail(e: React.FormEvent) {
     e.preventDefault();
-    setSavingSmtp(true);
+    setSavingEmail(true);
 
     try {
       const res = await fetch("/api/admin/system", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(smtp),
+        body: JSON.stringify({
+          resendApiKey: resend.apiKey,
+          resendFrom: resend.from,
+          ...smtp,
+        }),
       });
 
       const data = await res.json();
-      setSavingSmtp(false);
+      setSavingEmail(false);
 
       if (res.ok) {
-        toast.success(data.message || "Đã lưu cấu hình SMTP!");
+        toast.success(data.message || "Đã lưu cấu hình Email thành công!");
       } else {
         toast.error(data.error || "Lưu cấu hình thất bại");
       }
     } catch (err) {
-      setSavingSmtp(false);
+      setSavingEmail(false);
       toast.error("Lỗi kết nối máy chủ");
     }
   }
@@ -212,7 +236,7 @@ export default function AdminSettingsPage() {
             <h1 className="text-2xl font-bold tracking-tight">Hệ thống Quản trị Admin (`qy286`)</h1>
           </div>
           <p className="text-muted-foreground text-sm">
-            Quản lý cấu hình Email SMTP xác nhận, tài khoản người dùng và bảo mật hệ thống.
+            Quản lý cấu hình Email (Resend / SMTP), tài khoản người dùng và bảo mật hệ thống.
           </p>
         </div>
         <Button onClick={fetchAdminData} variant="outline" size="sm" className="gap-1.5 shrink-0 font-semibold">
@@ -252,7 +276,7 @@ export default function AdminSettingsPage() {
               <Receipt className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground font-medium">Hóa đơn tạo</p>
+              <p className="text-xs text-muted-foreground font-medium">Khoản chi</p>
               <p className="text-xl font-bold">{stats.totalExpenses}</p>
             </div>
           </CardContent>
@@ -261,10 +285,10 @@ export default function AdminSettingsPage() {
         <Card className="bg-card shadow-sm border">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600">
-              <ShieldCheck className="h-5 w-5" />
+              <ArrowRightLeft className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground font-medium">Thanh toán</p>
+              <p className="text-xs text-muted-foreground font-medium">Quyết toán</p>
               <p className="text-xl font-bold">{stats.totalSettlements}</p>
             </div>
           </CardContent>
@@ -272,10 +296,10 @@ export default function AdminSettingsPage() {
       </div>
 
       {/* Main Admin Tabs */}
-      <Tabs defaultValue="smtp" className="space-y-4">
+      <Tabs defaultValue="email" className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="smtp" className="gap-1.5 text-xs sm:text-sm font-semibold">
-            <Mail className="h-4 w-4 text-blue-500" /> Cấu hình Email SMTP
+          <TabsTrigger value="email" className="gap-1.5 text-xs sm:text-sm font-semibold">
+            <Mail className="h-4 w-4 text-blue-500" /> Cấu hình Email (Resend / SMTP)
           </TabsTrigger>
           <TabsTrigger value="users" className="gap-1.5 text-xs sm:text-sm font-semibold">
             <Users className="h-4 w-4 text-purple-500" /> Quản lý Người dùng
@@ -285,101 +309,157 @@ export default function AdminSettingsPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab 1: Cấu hình SMTP */}
-        <TabsContent value="smtp" className="space-y-4">
+        {/* Tab 1: Cấu hình Email */}
+        <TabsContent value="email" className="space-y-4">
           <Card className="border">
             <CardHeader>
               <CardTitle className="text-lg font-bold flex items-center gap-2">
                 <Mail className="h-5 w-5 text-blue-600" />
-                Cấu hình Máy chủ Gửi Email SMTP
+                Cấu hình Dịch vụ Gửi Email (Resend & SMTP)
               </CardTitle>
               <CardDescription className="text-xs">
-                Email này sẽ được sử dụng để gửi mã OTP xác thực đăng ký và khôi phục mật khẩu cho thành viên.
+                Email này sẽ được sử dụng để gửi mã OTP xác thực đăng ký, xác thực tài khoản và khôi phục mật khẩu.
               </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-6">
-              <form onSubmit={handleSaveSmtp} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <form onSubmit={handleSaveEmail} className="space-y-6">
+                {/* 1. Resend API Config (Ưu tiên) */}
+                <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 dark:bg-blue-500/10 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-bold text-sm text-blue-700 dark:text-blue-300">
+                      <Zap className="h-4 w-4" />
+                      1. Cấu hình Resend API (Khuyên dùng - Nhanh & Tin cậy)
+                    </div>
+                    {resend.apiKey ? (
+                      <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-xs">
+                        Đang kích hoạt
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs text-muted-foreground">
+                        Chưa cấu hình
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="resendApiKey">Resend API Key</Label>
+                      <Input
+                        id="resendApiKey"
+                        type="password"
+                        placeholder="re_xxxxxxxxxxxx..."
+                        value={resend.apiKey}
+                        onChange={(e) => setResend({ ...resend, apiKey: e.target.value.trim() })}
+                        className="h-11 font-mono"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Lấy API key tại trang quản lý <a href="https://resend.com/api-keys" target="_blank" rel="noreferrer" className="text-primary underline">Resend API Keys</a>
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="resendFrom">Email Người gửi (From Header)</Label>
+                      <Input
+                        id="resendFrom"
+                        placeholder="GroupSplit <noreply@qy286.me>"
+                        value={resend.from}
+                        onChange={(e) => setResend({ ...resend, from: e.target.value })}
+                        className="h-11"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Sử dụng domain đã xác thực trên Resend (VD: noreply@qy286.me).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. SMTP Server Config (Dự phòng) */}
+                <div className="p-4 rounded-xl border border-muted-foreground/20 bg-muted/20 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-bold text-sm">
+                      <Mail className="h-4 w-4" />
+                      2. Cấu hình Máy chủ SMTP (Dự phòng fallback)
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="smtpHost">SMTP Host</Label>
+                      <Input
+                        id="smtpHost"
+                        placeholder="smtp.gmail.com"
+                        value={smtp.host}
+                        onChange={(e) => setSmtp({ ...smtp, host: e.target.value })}
+                        className="h-11"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="smtpPort">SMTP Port</Label>
+                      <Input
+                        id="smtpPort"
+                        type="number"
+                        placeholder="587"
+                        value={smtp.port}
+                        onChange={(e) => setSmtp({ ...smtp, port: e.target.value })}
+                        className="h-11 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="smtpUser">SMTP User / Email đăng nhập</Label>
+                      <Input
+                        id="smtpUser"
+                        type="email"
+                        placeholder="your-email@gmail.com"
+                        value={smtp.user}
+                        onChange={(e) => setSmtp({ ...smtp, user: e.target.value })}
+                        className="h-11"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="smtpPass">SMTP Password / Mật khẩu ứng dụng</Label>
+                      <Input
+                        id="smtpPass"
+                        type="password"
+                        placeholder="••••••••••••"
+                        value={smtp.pass}
+                        onChange={(e) => setSmtp({ ...smtp, pass: e.target.value })}
+                        className="h-11"
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="smtpHost">SMTP Host</Label>
+                    <Label htmlFor="smtpFrom">Email Người gửi SMTP</Label>
                     <Input
-                      id="smtpHost"
-                      placeholder="smtp.gmail.com"
-                      value={smtp.host}
-                      onChange={(e) => setSmtp({ ...smtp, host: e.target.value })}
-                      required
+                      id="smtpFrom"
+                      placeholder="GroupSplit App <no-reply@yourdomain.com>"
+                      value={smtp.from}
+                      onChange={(e) => setSmtp({ ...smtp, from: e.target.value })}
                       className="h-11"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="smtpPort">SMTP Port</Label>
-                    <Input
-                      id="smtpPort"
-                      type="number"
-                      placeholder="587"
-                      value={smtp.port}
-                      onChange={(e) => setSmtp({ ...smtp, port: e.target.value })}
-                      required
-                      className="h-11 font-mono"
+                  <div className="flex items-center space-x-2 pt-1">
+                    <Switch
+                      id="smtpSecure"
+                      checked={smtp.secure}
+                      onCheckedChange={(val) => setSmtp({ ...smtp, secure: val })}
                     />
+                    <Label htmlFor="smtpSecure" className="text-xs font-semibold cursor-pointer">
+                      Sử dụng kết nối bảo mật SSL/TLS (Cổng 465)
+                    </Label>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="smtpUser">SMTP User / Email đăng nhập</Label>
-                    <Input
-                      id="smtpUser"
-                      type="email"
-                      placeholder="your-email@gmail.com"
-                      value={smtp.user}
-                      onChange={(e) => setSmtp({ ...smtp, user: e.target.value })}
-                      required
-                      className="h-11"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="smtpPass">SMTP Password / Mật khẩu ứng dụng</Label>
-                    <Input
-                      id="smtpPass"
-                      type="password"
-                      placeholder="••••••••••••"
-                      value={smtp.pass}
-                      onChange={(e) => setSmtp({ ...smtp, pass: e.target.value })}
-                      required
-                      className="h-11"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="smtpFrom">Email Người gửi (From Header)</Label>
-                  <Input
-                    id="smtpFrom"
-                    placeholder="GroupSplit App <no-reply@yourdomain.com>"
-                    value={smtp.from}
-                    onChange={(e) => setSmtp({ ...smtp, from: e.target.value })}
-                    className="h-11"
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2 pt-1">
-                  <Switch
-                    id="smtpSecure"
-                    checked={smtp.secure}
-                    onCheckedChange={(val) => setSmtp({ ...smtp, secure: val })}
-                  />
-                  <Label htmlFor="smtpSecure" className="text-xs font-semibold cursor-pointer">
-                    Sử dụng kết nối bảo mật SSL/TLS (Cổng 465)
-                  </Label>
-                </div>
-
-                <Button type="submit" disabled={savingSmtp} className="font-bold gap-2 h-11 bg-blue-600 hover:bg-blue-700">
-                  {savingSmtp ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                  Lưu Cấu hình SMTP Email
+                <Button type="submit" disabled={savingEmail} className="font-bold gap-2 h-11 bg-blue-600 hover:bg-blue-700">
+                  {savingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  Lưu Cấu hình Email
                 </Button>
               </form>
 
@@ -387,7 +467,7 @@ export default function AdminSettingsPage() {
               <div className="pt-6 border-t space-y-3">
                 <h4 className="font-bold text-sm flex items-center gap-1.5">
                   <Send className="h-4 w-4 text-emerald-500" />
-                  Gửi Email Thử nghiệm (Test SMTP)
+                  Gửi Email Thử nghiệm (Test Send Email)
                 </h4>
 
                 <form onSubmit={handleTestEmail} className="flex flex-col sm:flex-row gap-2">
@@ -433,85 +513,125 @@ export default function AdminSettingsPage() {
               </div>
             </CardHeader>
 
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b bg-muted/50 text-muted-foreground font-semibold">
-                      <th className="p-3">Tài khoản</th>
-                      <th className="p-3">Email</th>
-                      <th className="p-3">Quyền</th>
-                      <th className="p-3">Xác thực Email</th>
-                      <th className="p-3">Ngày tạo</th>
-                      <th className="p-3 text-right">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredUsers.map((u) => (
-                      <tr key={u.id} className="border-b hover:bg-muted/30 transition-colors">
-                        <td className="p-3">
-                          <div className="font-bold text-foreground">{u.displayName}</div>
-                          <div className="text-[11px] text-muted-foreground font-mono">@{u.username}</div>
-                        </td>
-                        <td className="p-3 font-mono text-muted-foreground">{u.email || "Chưa có"}</td>
-                        <td className="p-3">
-                          {u.username === "qy286" || u.role === "ADMIN" ? (
-                            <Badge className="bg-rose-500 text-white font-bold text-[10px]">
-                              ADMIN
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-[10px]">
-                              USER
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          {u.isEmailVerified ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
-                              <CheckCircle2 className="h-3.5 w-3.5" /> Đã xác thực
+            <CardContent className="p-4 space-y-3">
+              {filteredUsers.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground text-sm">
+                  Không tìm thấy người dùng nào phù hợp.
+                </div>
+              ) : (
+                filteredUsers.map((u) => {
+                  const isCurAdmin = u.username === "qy286";
+                  const isUpdating = updatingUserId === u.id;
+
+                  return (
+                    <div
+                      key={u.id}
+                      className="p-3.5 rounded-xl border bg-card/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-all hover:bg-muted/30"
+                    >
+                      {/* Avatar & User Details */}
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10 border border-primary/20 shrink-0">
+                          <AvatarImage src={u.avatar || undefined} />
+                          <AvatarFallback className="text-xs bg-muted font-bold">
+                            {getInitials(u.displayName || u.username)}
+                          </AvatarFallback>
+                        </Avatar>
+
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-sm text-foreground truncate">
+                              {u.displayName}
                             </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-semibold">
-                              <XCircle className="h-3.5 w-3.5" /> Chưa xác thực
+                            <span className="font-mono text-muted-foreground text-[11px]">
+                              @{u.username}
                             </span>
-                          )}
-                        </td>
-                        <td className="p-3 text-muted-foreground">
-                          {new Date(u.createdAt).toLocaleDateString("vi-VN")}
-                        </td>
-                        <td className="p-3 text-right space-x-1">
-                          {!u.isEmailVerified && (
+                            {u.role === "ADMIN" ? (
+                              <Badge className="bg-rose-500/10 text-rose-600 border border-rose-500/20 text-[10px] h-5">
+                                ADMIN
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] h-5 text-muted-foreground">
+                                USER
+                              </Badge>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 text-muted-foreground text-[11px] flex-wrap">
+                            <span>{u.email || "Chưa có email"}</span>
+                            {u.email && (
+                              <span className={u.isEmailVerified ? "text-emerald-500" : "text-amber-500"}>
+                                ({u.isEmailVerified ? "Đã xác thực" : "Chưa xác thực"})
+                              </span>
+                            )}
+                            <span>• {u._count.ownedGroups} nhóm tạo</span>
+                            <span>• {u._count.groupMemberships} nhóm tham gia</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Admin Action Buttons */}
+                      <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                        {!isCurAdmin && (
+                          <>
+                            {/* Toggle Email Verified */}
                             <Button
                               size="sm"
-                              variant="outline"
-                              onClick={() => handleUpdateUser(u.id, { isEmailVerified: true })}
-                              disabled={updatingUserId === u.id}
-                              className="h-7 text-[10px] px-2 text-emerald-600 border-emerald-500/30"
+                              variant="ghost"
+                              disabled={isUpdating}
+                              onClick={() =>
+                                handleUpdateUser(u.id, {
+                                  isEmailVerified: !u.isEmailVerified,
+                                })
+                              }
+                              className="h-8 text-xs px-2 text-muted-foreground hover:text-foreground cursor-pointer"
+                              title={u.isEmailVerified ? "Hủy xác thực Email" : "Đánh dấu đã xác thực Email"}
                             >
-                              Kích hoạt Email
+                              {u.isEmailVerified ? <UserX className="h-3.5 w-3.5 text-amber-500" /> : <UserCheck className="h-3.5 w-3.5 text-emerald-500" />}
                             </Button>
-                          )}
-                          {u.username !== "qy286" && (
+
+                            {/* Reset Password Prompt */}
                             <Button
                               size="sm"
                               variant="outline"
+                              disabled={isUpdating}
+                              onClick={() => {
+                                const newPass = window.prompt(
+                                  `Nhập mật khẩu mới cho tài khoản @${u.username}:`,
+                                  "123456"
+                                );
+                                if (newPass && newPass.trim().length >= 6) {
+                                  handleUpdateUser(u.id, { newPassword: newPass.trim() });
+                                } else if (newPass !== null) {
+                                  toast.error("Mật khẩu tối thiểu 6 ký tự");
+                                }
+                              }}
+                              className="h-8 text-xs gap-1 font-medium"
+                            >
+                              <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                              Reset Pass
+                            </Button>
+
+                            {/* Toggle Role */}
+                            <Button
+                              size="sm"
+                              variant={u.role === "ADMIN" ? "destructive" : "secondary"}
+                              disabled={isUpdating}
                               onClick={() =>
                                 handleUpdateUser(u.id, {
                                   role: u.role === "ADMIN" ? "USER" : "ADMIN",
                                 })
                               }
-                              disabled={updatingUserId === u.id}
-                              className="h-7 text-[10px] px-2"
+                              className="h-8 text-xs font-semibold"
                             >
-                              {u.role === "ADMIN" ? "Gỡ Admin" : "Thành Admin"}
+                              {u.role === "ADMIN" ? "Hạ cấp User" : "Set Admin"}
                             </Button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </CardContent>
           </Card>
         </TabsContent>
