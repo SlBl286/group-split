@@ -70,3 +70,100 @@ export async function PATCH(
     return NextResponse.json({ error: err.message || "Lỗi máy chủ" }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { id: groupId } = await params;
+    const userId = session.user.id!;
+
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      include: {
+        members: { where: { isLeft: false } },
+      },
+    });
+
+    if (!group) return NextResponse.json({ error: "Nhóm không tồn tại" }, { status: 404 });
+
+    // Chỉ Trưởng nhóm mới có quyền xoá nhóm
+    if (group.ownerId !== userId) {
+      return NextResponse.json(
+        { error: "Chỉ Trưởng nhóm mới có quyền xoá nhóm này" },
+        { status: 403 }
+      );
+    }
+
+    const memberIdsToNotify = group.members
+      .map((m) => m.userId)
+      .filter((uid) => uid !== userId);
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Xoá splits của các hoá đơn trong nhóm
+      const expenses = await tx.expense.findMany({
+        where: { groupId },
+        select: { id: true },
+      });
+      const expenseIds = expenses.map((e) => e.id);
+      if (expenseIds.length > 0) {
+        await tx.expenseSplit.deleteMany({
+          where: { expenseId: { in: expenseIds } },
+        });
+        await tx.expense.deleteMany({
+          where: { groupId },
+        });
+      }
+
+      // 2. Xoá settlements
+      await tx.settlement.deleteMany({ where: { groupId } });
+
+      // 3. Xoá fund allocations
+      await tx.fundAllocation.deleteMany({ where: { groupId } });
+
+      // 4. Xoá categories
+      await tx.category.deleteMany({ where: { groupId } });
+
+      // 5. Xoá group invitations & join requests
+      await tx.groupInvitation.deleteMany({ where: { groupId } });
+      await tx.groupJoinRequest.deleteMany({ where: { groupId } });
+
+      // 6. Xoá members
+      await tx.groupMember.deleteMany({ where: { groupId } });
+
+      // 7. Xoá group
+      await tx.group.delete({ where: { id: groupId } });
+    });
+
+    // Thông báo cho các thành viên còn lại
+    const { createNotification } = await import("@/lib/notifications");
+    for (const memberId of memberIdsToNotify) {
+      createNotification({
+        userId: memberId,
+        title: `Nhóm đã bị giải tán`,
+        content: `Trưởng nhóm đã giải tán và xoá nhóm "${group.name}".`,
+        type: "MEMBER_LEFT",
+        link: `/groups`,
+      }).catch(console.error);
+    }
+
+    // Phát sóng sự kiện giải tán nhóm
+    eventEmitter.emit(`group:${groupId}`, { type: "REFRESH" });
+
+    return NextResponse.json({
+      success: true,
+      message: `Đã xoá nhóm "${group.name}" thành công`,
+    });
+  } catch (err: any) {
+    console.error("Lỗi khi xoá nhóm:", err);
+    return NextResponse.json(
+      { error: err.message || "Lỗi máy chủ khi xoá nhóm" },
+      { status: 500 }
+    );
+  }
+}
+

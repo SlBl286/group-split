@@ -32,6 +32,8 @@ import { FundAllocationTrigger } from "@/components/groups/fund-allocation-trigg
 import { MemberQRAction } from "@/components/groups/member-qr-action";
 import { GroupSettingsForm } from "@/components/groups/group-settings-form";
 import { LeaveGroupCard } from "@/components/groups/leave-group-card";
+import { RemoveMemberButton } from "@/components/groups/remove-member-button";
+import { DeleteGroupCard } from "@/components/groups/delete-group-card";
 
 async function getGroupDetail(id: string) {
   try {
@@ -323,6 +325,16 @@ export default async function GroupDetailPage({
 
                       {/* Nút hành động quét QR cá nhân */}
                       <MemberQRAction member={member as any} />
+
+                      {/* Nút xoá thành viên (chỉ Trưởng nhóm có quyền xoá các thành viên khác) */}
+                      {isOwner && !isMemberOwner && (
+                        <RemoveMemberButton
+                          groupId={id}
+                          memberUserId={member.userId}
+                          memberDisplayName={member.user.displayName}
+                          memberBalance={memberBalance}
+                        />
+                      )}
                     </div>
                   </div>
                 );
@@ -363,8 +375,12 @@ export default async function GroupDetailPage({
             </Card>
           )}
 
-          {/* Thẻ Rời khỏi Nhóm */}
-          <LeaveGroupCard groupId={id} groupName={group.name} />
+          {/* Thẻ Giải tán / Xoá nhóm (cho Trưởng nhóm) hoặc Rời nhóm (cho thành viên) */}
+          {isOwner ? (
+            <DeleteGroupCard groupId={id} groupName={group.name} />
+          ) : (
+            <LeaveGroupCard groupId={id} groupName={group.name} />
+          )}
         </TabsContent>
       </Tabs>
     </div>
