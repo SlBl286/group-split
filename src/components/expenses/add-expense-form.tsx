@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { formatVND, getInitials } from "@/lib/utils/format";
-import { Loader2, Equal, Sliders, Check, ChevronDown } from "lucide-react";
+import { Loader2, Equal, Sliders, Check, ChevronDown, Clock } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { CategorySelectDropdown } from "@/components/expenses/category-select-dropdown";
 
@@ -70,10 +70,30 @@ interface Member {
   avatar?: string | null;
 }
 
+export interface InitialExpense {
+  id: string;
+  title: string;
+  description?: string | null;
+  amount: number;
+  splitType: "EQUAL" | "CUSTOM";
+  date: string | Date;
+  category: string;
+  categoryId?: string | null;
+  paidById: string;
+  createdAt: string | Date;
+  splits: {
+    id?: string;
+    userId: string;
+    amount: number;
+    shares?: number;
+  }[];
+}
+
 interface AddExpenseFormProps {
   groupId: string;
   members: Member[];
   currentUserId: string;
+  initialExpense?: InitialExpense;
 }
 
 const CATEGORIES = [
@@ -85,24 +105,60 @@ const CATEGORIES = [
   { id: "Khác", label: "Khác", emoji: "📦" },
 ];
 
-export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFormProps) {
+export function AddExpenseForm({ groupId, members, currentUserId, initialExpense }: AddExpenseFormProps) {
   const router = useRouter();
+  const isEdit = !!initialExpense;
   const [loading, setLoading] = useState(false);
-  const [splitType, setSplitType] = useState<"EQUAL" | "CUSTOM">("EQUAL");
-  const [amount, setAmount] = useState("");
-  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(
-    new Set(members.map((m) => m.userId))
+  const [splitType, setSplitType] = useState<"EQUAL" | "CUSTOM">(
+    initialExpense?.splitType || "EQUAL"
   );
-  const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
+  const [amount, setAmount] = useState(
+    initialExpense ? initialExpense.amount.toString() : ""
+  );
+  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(() => {
+    if (initialExpense?.splits?.length) {
+      return new Set(initialExpense.splits.map((s) => s.userId));
+    }
+    return new Set(members.map((m) => m.userId));
+  });
+  const [customSplits, setCustomSplits] = useState<Record<string, string>>(() => {
+    if (initialExpense?.splits) {
+      const splitsMap: Record<string, string> = {};
+      initialExpense.splits.forEach((s) => {
+        splitsMap[s.userId] = s.amount.toString();
+      });
+      return splitsMap;
+    }
+    return {};
+  });
   const [customPercents, setCustomPercents] = useState<Record<string, string>>({});
-  const [memberShares, setMemberShares] = useState<Record<string, string>>({});
+  const [memberShares, setMemberShares] = useState<Record<string, string>>(() => {
+    if (initialExpense?.splits) {
+      const sharesMap: Record<string, string> = {};
+      initialExpense.splits.forEach((s) => {
+        sharesMap[s.userId] = (s.shares ?? 1).toString();
+      });
+      return sharesMap;
+    }
+    return {};
+  });
   const [customSplitSubtype, setCustomSplitSubtype] = useState<"AMOUNT" | "PERCENT">("AMOUNT");
-  const [paidById, setPaidById] = useState(currentUserId);
-  const [category, setCategory] = useState("Khác");
+  const [paidById, setPaidById] = useState(
+    initialExpense ? initialExpense.paidById : currentUserId
+  );
+  const [category, setCategory] = useState(
+    initialExpense ? initialExpense.category : "Khác"
+  );
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+    initialExpense?.categoryId ?? null
+  );
   const [categoryOpen, setCategoryOpen] = useState(false);
-  const [date, setDate] = useState<Date>(new Date());
+  const [date, setDate] = useState<Date>(
+    initialExpense ? new Date(initialExpense.date) : new Date()
+  );
+
+
 
   useEffect(() => {
     async function loadCategories() {
@@ -111,11 +167,13 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
         if (res.ok) {
           const data = await res.json();
           setCategories(data);
-          // Mặc định chọn danh mục gốc "Khác"
-          const defaultCat = data.find((c: Category) => c.name === "Khác" && c.parentId === null) || data[0];
-          if (defaultCat) {
-            setSelectedCategoryId(defaultCat.id);
-            setCategory(defaultCat.name);
+          if (!initialExpense) {
+            // Mặc định chọn danh mục gốc "Khác"
+            const defaultCat = data.find((c: Category) => c.name === "Khác" && c.parentId === null) || data[0];
+            if (defaultCat) {
+              setSelectedCategoryId(defaultCat.id);
+              setCategory(defaultCat.name);
+            }
           }
         }
       } catch (err) {
@@ -123,7 +181,7 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
       }
     }
     loadCategories();
-  }, [groupId]);
+  }, [groupId, initialExpense]);
 
   const parsedAmount = parseFloat(amount) || 0;
 
@@ -354,8 +412,13 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
     }
 
     try {
-      const res = await fetch(`/api/groups/${groupId}/expenses`, {
-        method: "POST",
+      const endpoint = isEdit
+        ? `/api/expenses/${initialExpense.id}`
+        : `/api/groups/${groupId}/expenses`;
+      const method = isEdit ? "PUT" : "POST";
+
+      const res = await fetch(endpoint, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
@@ -373,14 +436,18 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || "Thêm hoá đơn thất bại");
+        toast.error(data.error || (isEdit ? "Cập nhật hoá đơn thất bại" : "Thêm hoá đơn thất bại"));
         setLoading(false);
       } else {
-        toast.success("Đã thêm hoá đơn! Đang chờ owner duyệt.");
+        toast.success(
+          isEdit
+            ? "Đã cập nhật hoá đơn thành công!"
+            : "Đã thêm hoá đơn! Đang chờ owner duyệt."
+        );
         router.push(`/groups/${groupId}`);
       }
     } catch (err) {
-      console.error("Lỗi khi thêm hoá đơn:", err);
+      console.error("Lỗi khi lưu hoá đơn:", err);
       toast.error("Đã xảy ra lỗi kết nối, vui lòng thử lại");
       setLoading(false);
     }
@@ -388,6 +455,18 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {isEdit && (
+        <div className="p-3.5 rounded-xl border border-blue-500/30 bg-blue-500/10 flex items-center gap-3 text-xs sm:text-sm">
+          <Clock className="h-4 w-4 text-blue-500 shrink-0" />
+          <div>
+            <span className="font-semibold text-blue-600 dark:text-blue-400">Chế độ chỉnh sửa: </span>
+            <span>
+              Bạn đang chỉnh sửa hoá đơn này (chưa có ai thanh toán nợ liên quan).
+            </span>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardContent className="pt-6 space-y-4">
           {/* Title */}
@@ -396,6 +475,7 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
             <Input
               id="expense-title"
               name="title"
+              defaultValue={initialExpense?.title}
               placeholder="VD: Tiền ăn trưa, Tiền xăng..."
               required
               className="h-11"
@@ -461,6 +541,7 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
             <Textarea
               id="expense-desc"
               name="description"
+              defaultValue={initialExpense?.description || ""}
               placeholder="Mô tả thêm..."
               rows={2}
             />
@@ -755,6 +836,8 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
               <Loader2 className="h-5 w-5 animate-spin" />
               Đang xử lý...
             </>
+          ) : isEdit ? (
+            "Lưu thay đổi"
           ) : (
             "Thêm hoá đơn"
           )}

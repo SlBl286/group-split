@@ -2,20 +2,34 @@
 
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { ExpenseApproveButton } from "./expense-approve-button";
 import { formatVND, formatDate } from "@/lib/utils/format";
-import { Receipt, Calendar, ArrowLeft, ArrowRight, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { Receipt, Calendar, ArrowLeft, ArrowRight, CheckCircle2, Clock, XCircle, Pencil } from "lucide-react";
+import Link from "next/link";
+import { ExpenseDeleteButton } from "./expense-delete-button";
+
+interface Settlement {
+  id: string;
+  amount: number;
+  isConfirmed: boolean;
+  createdAt: string | Date;
+  fromUserId: string;
+  toUserId: string;
+}
 
 interface Split {
   id: string;
   amount: number;
   shares?: number;
   isPaid: boolean;
+  userId?: string;
   user: {
+    id?: string;
     displayName: string;
   };
 }
@@ -27,9 +41,13 @@ interface Expense {
   splitType: string;
   status: string;
   date: string;
+  createdAt?: string | Date;
+  createdById?: string;
+  paidById?: string;
   category: string;
   categoryIcon?: string;
   paidBy: {
+    id?: string;
     displayName: string;
   };
   splits: Split[];
@@ -37,6 +55,7 @@ interface Expense {
 
 interface ExpensesListProps {
   expenses: Expense[];
+  settlements?: Settlement[];
   isOwner: boolean;
   groupId: string;
   currentUserId: string;
@@ -64,9 +83,51 @@ const statusLabel = {
   REJECTED: "Từ chối",
 };
 
-export function ExpensesList({ expenses, isOwner, groupId, currentUserId, currentUserName }: ExpensesListProps) {
+export function ExpensesList({
+  expenses,
+  settlements,
+  isOwner,
+  groupId,
+  currentUserId,
+  currentUserName,
+}: ExpensesListProps) {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
+
+  const isExpenseLocked = (expense: Expense) => {
+    if (!settlements || settlements.length === 0) return false;
+    const payerId = expense.paidById || (expense.paidBy as any)?.id;
+    if (!payerId) return false;
+
+    const debtorIds = expense.splits
+      .map((s) => s.userId || (s as any).user?.id)
+      .filter((id) => id && id !== payerId);
+
+    if (debtorIds.length === 0) return false;
+
+    const expenseCreatedTime = new Date(expense.createdAt || expense.date).getTime();
+
+    return settlements.some((s) => {
+      if (!s.isConfirmed) return false;
+      const sTime = new Date(s.createdAt).getTime();
+      if (sTime < expenseCreatedTime) return false;
+      return (
+        (s.fromUserId === payerId && debtorIds.includes(s.toUserId)) ||
+        (s.toUserId === payerId && debtorIds.includes(s.fromUserId))
+      );
+    });
+  };
+
+  const canEditExpense = (expense: Expense) => {
+    const isLocked = isExpenseLocked(expense);
+    const canUser = expense.createdById === currentUserId || isOwner;
+    return !isLocked && canUser;
+  };
+
+  const canDeleteExpense = (expense: Expense) => {
+    const isLocked = isExpenseLocked(expense);
+    return !isLocked && isOwner;
+  };
 
   // Filter expenses by date range
   const filteredExpenses = expenses.filter((e) => {
@@ -214,11 +275,32 @@ export function ExpensesList({ expenses, isOwner, groupId, currentUserId, curren
                         })}
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
                       <p className="font-extrabold text-base text-amber-600 dark:text-amber-400">{formatVND(expense.amount)}</p>
-                      {isOwner && (
-                        <ExpenseApproveButton expenseId={expense.id} />
-                      )}
+                      <div className="flex items-center gap-1">
+                        {canEditExpense(expense) && (
+                          <Link
+                            href={`/groups/${groupId}/expenses/${expense.id}/edit`}
+                            className={cn(
+                              buttonVariants({ variant: "ghost", size: "sm" }),
+                              "h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1 hover:bg-amber-500/10 cursor-pointer"
+                            )}
+                          >
+                            <Pencil className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                            Sửa
+                          </Link>
+                        )}
+                        {canDeleteExpense(expense) && (
+                          <ExpenseDeleteButton
+                            expenseId={expense.id}
+                            expenseTitle={expense.title}
+                            amount={expense.amount}
+                          />
+                        )}
+                        {isOwner && (
+                          <ExpenseApproveButton expenseId={expense.id} />
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -306,11 +388,32 @@ export function ExpensesList({ expenses, isOwner, groupId, currentUserId, curren
                           })}
                         </div>
                       </div>
-                      <div className="text-right shrink-0">
+                      <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
                         <p className="font-bold text-base">{formatVND(expense.amount)}</p>
-                        {isOwner && expense.status === "PENDING" && (
-                          <ExpenseApproveButton expenseId={expense.id} />
-                        )}
+                        <div className="flex items-center gap-1">
+                          {canEditExpense(expense) && (
+                            <Link
+                              href={`/groups/${groupId}/expenses/${expense.id}/edit`}
+                              className={cn(
+                                buttonVariants({ variant: "ghost", size: "sm" }),
+                                "h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1 cursor-pointer"
+                              )}
+                            >
+                              <Pencil className="h-3 w-3" />
+                              Sửa
+                            </Link>
+                          )}
+                          {canDeleteExpense(expense) && (
+                            <ExpenseDeleteButton
+                              expenseId={expense.id}
+                              expenseTitle={expense.title}
+                              amount={expense.amount}
+                            />
+                          )}
+                          {isOwner && expense.status === "PENDING" && (
+                            <ExpenseApproveButton expenseId={expense.id} />
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>

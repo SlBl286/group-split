@@ -227,6 +227,7 @@ export default async function GroupDetailPage({
           <ExpensesList
             groupId={id}
             expenses={group.expenses as any}
+            settlements={group.settlements as any}
             currentUserId={userId}
             currentUserName={session!.user.name || ""}
             isOwner={isOwner}
