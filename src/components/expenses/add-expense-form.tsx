@@ -95,6 +95,7 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
   );
   const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
   const [customPercents, setCustomPercents] = useState<Record<string, string>>({});
+  const [memberShares, setMemberShares] = useState<Record<string, string>>({});
   const [customSplitSubtype, setCustomSplitSubtype] = useState<"AMOUNT" | "PERCENT">("AMOUNT");
   const [paidById, setPaidById] = useState(currentUserId);
   const [category, setCategory] = useState("Khác");
@@ -126,9 +127,67 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
 
   const parsedAmount = parseFloat(amount) || 0;
 
-  // Equal split amount per person
-  const equalShare =
-    selectedMembers.size > 0 ? parsedAmount / selectedMembers.size : 0;
+  // Tính toán chia đều theo số suất (shares)
+  const totalShares = Array.from(selectedMembers).reduce((sum, userId) => {
+    const s = parseFloat(memberShares[userId] ?? "1");
+    return sum + (isNaN(s) || s <= 0 ? 1 : s);
+  }, 0);
+
+  const shareUnit = totalShares > 0 ? parsedAmount / totalShares : 0;
+
+  function getMemberEqualAmount(userId: string): number {
+    if (!selectedMembers.has(userId) || totalShares <= 0 || parsedAmount <= 0) return 0;
+    const s = parseFloat(memberShares[userId] ?? "1");
+    const shareVal = isNaN(s) || s <= 0 ? 1 : s;
+    return Math.round(shareUnit * shareVal);
+  }
+
+  function handleShareChange(userId: string, newShareStr: string) {
+    setMemberShares((prev) => ({
+      ...prev,
+      [userId]: newShareStr,
+    }));
+  }
+
+  function handleShareStep(userId: string, delta: number) {
+    const current = parseFloat(memberShares[userId] ?? "1");
+    const validCurrent = isNaN(current) || current <= 0 ? 1 : current;
+    const next = Math.max(0.5, Number((validCurrent + delta).toFixed(1)));
+    handleShareChange(userId, next.toString());
+  }
+
+  function calculateEqualSplits(): { userId: string; amount: number; shares: number }[] {
+    if (selectedMembers.size === 0 || parsedAmount <= 0) return [];
+
+    const selectedArray = Array.from(selectedMembers);
+    const rawSplits = selectedArray.map((userId) => {
+      const s = parseFloat(memberShares[userId] ?? "1");
+      const shareVal = isNaN(s) || s <= 0 ? 1 : s;
+      const amt = Math.round(shareUnit * shareVal);
+      return { userId, amount: amt, shares: shareVal };
+    });
+
+    // Bù chênh lệch làm tròn vào người trả tiền nếu được chọn, hoặc người có số suất lớn nhất
+    const totalCalc = rawSplits.reduce((sum, r) => sum + r.amount, 0);
+    const diff = parsedAmount - totalCalc;
+    if (diff !== 0 && rawSplits.length > 0) {
+      let targetIndex = rawSplits.findIndex((r) => r.userId === paidById);
+      if (targetIndex === -1) {
+        let maxShares = -1;
+        rawSplits.forEach((r, idx) => {
+          if (r.shares > maxShares) {
+            maxShares = r.shares;
+            targetIndex = idx;
+          }
+        });
+      }
+      if (targetIndex !== -1) {
+        rawSplits[targetIndex].amount += diff;
+      }
+    }
+
+    return rawSplits;
+  }
 
   // Custom splits total
   const customTotal = customSplitSubtype === "AMOUNT"
@@ -260,13 +319,10 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
     const dateStr = date.toISOString();
 
     // Build splits
-    let splits: { userId: string; amount: number }[];
+    let splits: { userId: string; amount: number; shares?: number }[];
 
     if (splitType === "EQUAL") {
-      splits = Array.from(selectedMembers).map((userId) => ({
-        userId,
-        amount: Math.round(equalShare),
-      }));
+      splits = calculateEqualSplits();
     } else {
       splits = Array.from(selectedMembers).map((userId) => {
         let memberAmount = 0;
@@ -279,6 +335,7 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
         return {
           userId,
           amount: memberAmount,
+          shares: 1,
         };
       });
 
@@ -543,9 +600,46 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
                     {isSelected && (
                       <div className="shrink-0 flex items-center gap-2">
                         {splitType === "EQUAL" ? (
-                          <Badge variant="outline" className="text-xs font-mono">
-                            {parsedAmount > 0 ? formatVND(equalShare) : "—"}
-                          </Badge>
+                          <div className="flex items-center gap-1.5">
+                            {/* Bộ điều khiển số suất */}
+                            <div className="flex items-center border border-border rounded-lg overflow-hidden bg-background h-8 shadow-xs">
+                              <button
+                                type="button"
+                                onClick={() => handleShareStep(m.userId, -0.5)}
+                                title="Giảm 0.5 suất"
+                                className="px-2 h-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors text-xs font-bold cursor-pointer"
+                              >
+                                -
+                              </button>
+                              <div className="w-11 h-full flex items-center">
+                                <input
+                                  type="text"
+                                  value={memberShares[m.userId] ?? "1"}
+                                  onChange={(e) => {
+                                    const val = e.target.value.replace(/[^0-9.]/g, "");
+                                    const parts = val.split(".");
+                                    const clean = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : val;
+                                    handleShareChange(m.userId, clean);
+                                  }}
+                                  className="w-full h-full text-center text-xs font-semibold bg-transparent focus:outline-none"
+                                  placeholder="1"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleShareStep(m.userId, 0.5)}
+                                title="Tăng 0.5 suất"
+                                className="px-2 h-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors text-xs font-bold cursor-pointer"
+                              >
+                                +
+                              </button>
+                            </div>
+                            <span className="text-[11px] text-muted-foreground font-medium">suất</span>
+
+                            <Badge variant="outline" className="text-xs font-mono ml-1 min-w-[72px] justify-end">
+                              {parsedAmount > 0 ? formatVND(getMemberEqualAmount(m.userId)) : "—"}
+                            </Badge>
+                          </div>
                         ) : (
                           <div className="flex items-center gap-2">
                             {customSplitSubtype === "PERCENT" && (
@@ -592,6 +686,18 @@ export function AddExpenseForm({ groupId, members, currentUserId }: AddExpenseFo
                 );
               })}
             </div>
+
+            {/* Thông tin tổng số suất trong chế độ Chia đều */}
+            {splitType === "EQUAL" && parsedAmount > 0 && totalShares > 0 && totalShares !== selectedMembers.size && (
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-primary/10 border border-primary/20 text-xs mt-3">
+                <span className="text-muted-foreground">
+                  Tổng cộng: <strong className="text-foreground font-semibold">{totalShares} suất</strong> ({selectedMembers.size} người)
+                </span>
+                <span className="font-semibold text-primary">
+                  ~{formatVND(Math.round(parsedAmount / totalShares))} / suất
+                </span>
+              </div>
+            )}
 
             {splitType === "CUSTOM" && parsedAmount > 0 && (
               <div className="space-y-3 mt-3">

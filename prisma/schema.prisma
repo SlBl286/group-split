@@ -148,6 +148,7 @@ enum ExpenseStatus {
 model ExpenseSplit {
   id     String @id @default(cuid())
   amount Float
+  shares Float  @default(1)
   isPaid Boolean @default(false)
 
   expense   Expense @relation(fields: [expenseId], references: [id])

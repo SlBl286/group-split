@@ -162,7 +162,12 @@ export function NotificationBell() {
   function getNotificationIcon(type: string) {
     switch (type) {
       case "EXPENSE_CREATED":
+      case "EXPENSE_APPROVED":
         return <Receipt className="h-4 w-4 text-emerald-500 shrink-0" />;
+      case "EXPENSE_PENDING":
+        return <Receipt className="h-4 w-4 text-amber-500 shrink-0" />;
+      case "EXPENSE_REJECTED":
+        return <XCircle className="h-4 w-4 text-rose-500 shrink-0" />;
       case "GROUP_INVITE":
       case "JOIN_REQUEST":
         return <UserPlus className="h-4 w-4 text-blue-500 shrink-0" />;

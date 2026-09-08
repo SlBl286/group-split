@@ -63,7 +63,7 @@ export default function AdminSettingsPage() {
 
   const [resend, setResend] = useState({
     apiKey: "",
-    from: "GroupSplit <noreply@qy286.me>",
+    from: "GroupSplit <support@qy286.me>",
   });
 
   const [smtp, setSmtp] = useState({
@@ -92,7 +92,7 @@ export default function AdminSettingsPage() {
         if (data.resend) {
           setResend({
             apiKey: data.resend.apiKey || "",
-            from: data.resend.from || "GroupSplit <noreply@qy286.me>",
+            from: data.resend.from || "GroupSplit <support@qy286.me>",
           });
         }
         if (data.smtp) {
@@ -362,13 +362,13 @@ export default function AdminSettingsPage() {
                       <Label htmlFor="resendFrom">Email Người gửi (From Header)</Label>
                       <Input
                         id="resendFrom"
-                        placeholder="GroupSplit <noreply@qy286.me>"
+                        placeholder="GroupSplit <support@qy286.me>"
                         value={resend.from}
                         onChange={(e) => setResend({ ...resend, from: e.target.value })}
                         className="h-11"
                       />
                       <p className="text-[11px] text-muted-foreground">
-                        Sử dụng domain đã xác thực trên Resend (VD: noreply@qy286.me).
+                        Sử dụng domain đã xác thực trên Resend (VD: support@qy286.me).
                       </p>
                     </div>
                   </div>

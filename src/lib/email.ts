@@ -58,7 +58,7 @@ export async function getEmailConfig(): Promise<EmailSystemConfig> {
       map.get("RESEND_FROM") ||
       process.env.EMAIL_FROM ||
       process.env.RESEND_FROM ||
-      "GroupSplit <noreply@qy286.me>";
+      "GroupSplit <support@qy286.me>";
 
     // Format sender name if user only provided raw email
     if (fromEmail && !fromEmail.includes("<") && fromEmail.includes("@")) {
@@ -85,7 +85,7 @@ export async function getEmailConfig(): Promise<EmailSystemConfig> {
   } catch (err) {
     console.error("Error reading Email config:", err);
     const resendApiKey = process.env.RESEND_API || process.env.RESEND_API_KEY || "";
-    const fromEmail = process.env.EMAIL_FROM || process.env.RESEND_FROM || "GroupSplit <noreply@qy286.me>";
+    const fromEmail = process.env.EMAIL_FROM || process.env.RESEND_FROM || "GroupSplit <support@qy286.me>";
     return { resendApiKey, fromEmail, smtp: null };
   }
 }

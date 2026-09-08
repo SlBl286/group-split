@@ -13,6 +13,7 @@ import { Receipt, Calendar, ArrowLeft, ArrowRight, CheckCircle2, Clock, XCircle 
 interface Split {
   id: string;
   amount: number;
+  shares?: number;
   isPaid: boolean;
   user: {
     displayName: string;
@@ -192,6 +193,7 @@ export function ExpensesList({ expenses, isOwner, groupId, currentUserId, curren
                       <div className="mt-2 flex flex-wrap gap-1">
                         {expense.splits.map((split) => {
                           const isCurrentUser = split.user.displayName === currentUserName;
+                          const sharesLabel = split.shares && split.shares !== 1 ? ` (x${split.shares})` : "";
                           return (
                             <span
                               key={split.id}
@@ -205,7 +207,7 @@ export function ExpensesList({ expenses, isOwner, groupId, currentUserId, curren
                                     : "bg-muted text-muted-foreground"
                               }`}
                             >
-                              {isCurrentUser ? "Bạn" : split.user.displayName}: {formatVND(split.amount)}
+                              {isCurrentUser ? "Bạn" : split.user.displayName}{sharesLabel}: {formatVND(split.amount)}
                               {split.isPaid && " ✓"}
                             </span>
                           );
@@ -283,6 +285,7 @@ export function ExpensesList({ expenses, isOwner, groupId, currentUserId, curren
                         <div className="mt-2 flex flex-wrap gap-1">
                           {expense.splits.map((split) => {
                             const isCurrentUser = split.user.displayName === currentUserName;
+                            const sharesLabel = split.shares && split.shares !== 1 ? ` (x${split.shares})` : "";
                             return (
                               <span
                                 key={split.id}
@@ -296,7 +299,7 @@ export function ExpensesList({ expenses, isOwner, groupId, currentUserId, curren
                                       : "bg-muted text-muted-foreground"
                                 }`}
                               >
-                                {isCurrentUser ? "Bạn" : split.user.displayName}: {formatVND(split.amount)}
+                                {isCurrentUser ? "Bạn" : split.user.displayName}{sharesLabel}: {formatVND(split.amount)}
                                 {split.isPaid && " ✓"}
                               </span>
                             );

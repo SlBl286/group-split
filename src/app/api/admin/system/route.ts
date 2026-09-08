@@ -43,7 +43,7 @@ export async function GET() {
       },
       resend: {
         apiKey: settingsMap.RESEND_API || process.env.RESEND_API || process.env.RESEND_API_KEY || "",
-        from: settingsMap.EMAIL_FROM || process.env.EMAIL_FROM || process.env.RESEND_FROM || "GroupSplit <noreply@qy286.me>",
+        from: settingsMap.EMAIL_FROM || process.env.EMAIL_FROM || process.env.RESEND_FROM || "GroupSplit <support@qy286.me>",
       },
       smtp: {
         host: settingsMap.SMTP_HOST || process.env.SMTP_HOST || "",
