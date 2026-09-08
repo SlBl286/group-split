@@ -73,18 +73,19 @@ export function CaptchaChallenge({ onCaptchaChange }: CaptchaChallengeProps) {
         </Button>
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="shrink-0 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-mono font-extrabold text-sm px-3.5 py-2 rounded-lg tracking-wider border shadow-inner select-none">
-          {captcha ? captcha.question : "..."}
+      <div className="space-y-2">
+        <div className="bg-slate-900 text-slate-100 dark:bg-slate-950 dark:text-slate-200 text-xs sm:text-sm font-medium p-3 rounded-lg border border-slate-800 shadow-inner select-none leading-relaxed flex items-start gap-2">
+          <span className="font-bold text-amber-400 shrink-0 select-none">🧩 Đố:</span>
+          <span>{captcha ? captcha.question : "Đang tải câu đố..."}</span>
         </div>
         <Input
           type="text"
-          inputMode="numeric"
-          placeholder="Nhập kết quả..."
+          placeholder="Nhập câu trả lời (không cần phân biệt hoa/thường, dấu)..."
           value={userAnswer}
           onChange={(e) => handleInputChange(e.target.value)}
-          className="h-10 text-sm font-semibold font-mono"
+          className="h-10 text-sm font-medium"
           required
+          autoComplete="off"
         />
       </div>
     </div>
