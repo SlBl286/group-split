@@ -20,6 +20,8 @@ import {
   CheckCircle2,
   Clock,
   Settings,
+  Coins,
+  Wallet,
 } from "lucide-react";
 import { InviteSection } from "@/components/groups/invite-section";
 import { AddMemberForm } from "@/components/groups/add-member-form";
@@ -29,6 +31,8 @@ import { ExpensesList } from "@/components/groups/expenses-list";
 import { GroupBalanceSummary } from "@/components/groups/group-balance-summary";
 import { FundManagerSettings } from "@/components/groups/fund-manager-settings";
 import { FundAllocationTrigger } from "@/components/groups/fund-allocation-trigger";
+import { FundAllocationsSection } from "@/components/groups/fund-allocations-section";
+import { GroupFundSection } from "@/components/groups/group-fund-section";
 import { MemberQRAction } from "@/components/groups/member-qr-action";
 import { GroupSettingsForm } from "@/components/groups/group-settings-form";
 import { LeaveGroupCard } from "@/components/groups/leave-group-card";
@@ -63,6 +67,10 @@ async function getGroupDetail(id: string) {
           include: { fromUser: true, toUser: true },
           orderBy: { date: "desc" },
         },
+        fundContributions: {
+          include: { user: true },
+          orderBy: { createdAt: "desc" },
+        },
       },
     });
   } catch (err) {
@@ -91,6 +99,10 @@ async function getGroupDetail(id: string) {
         fundAllocations: {
           include: { fromUser: true, toUser: true },
           orderBy: { date: "desc" },
+        },
+        fundContributions: {
+          include: { user: true },
+          orderBy: { createdAt: "desc" },
         },
       },
     });
@@ -200,29 +212,39 @@ export default async function GroupDetailPage({
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="expenses" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[480px]">
-          <TabsTrigger value="expenses" className="gap-1.5 text-xs sm:text-sm">
-            <Receipt className="h-4 w-4" />
-            Hóa đơn
-            {pendingExpenses.length > 0 && (
-              <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">
-                {pendingExpenses.length}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="settle" className="gap-1.5 text-xs sm:text-sm">
-            <CheckCircle2 className="h-4 w-4" />
-            Trả nợ
-          </TabsTrigger>
-          <TabsTrigger value="members" className="gap-1.5 text-xs sm:text-sm">
-            <Users className="h-4 w-4" />
-            Thành viên
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="gap-1.5 text-xs sm:text-sm">
-            <Settings className="h-4 w-4" />
-            Cài đặt
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0 scrollbar-none pb-1">
+          <TabsList className="grid grid-cols-6 w-full min-w-[560px] sm:min-w-0 lg:w-[720px] h-9 p-1">
+            <TabsTrigger value="expenses" className="gap-1.5 text-xs sm:text-sm">
+              <Receipt className="h-4 w-4" />
+              Hóa đơn
+              {pendingExpenses.length > 0 && (
+                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">
+                  {pendingExpenses.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="settle" className="gap-1.5 text-xs sm:text-sm">
+              <CheckCircle2 className="h-4 w-4" />
+              Trả nợ
+            </TabsTrigger>
+            <TabsTrigger value="group-fund" className="gap-1.5 text-xs sm:text-sm">
+              <Wallet className="h-4 w-4" />
+              Quỹ nhóm
+            </TabsTrigger>
+            <TabsTrigger value="funds" className="gap-1.5 text-xs sm:text-sm">
+              <Coins className="h-4 w-4" />
+              Cấp quỹ
+            </TabsTrigger>
+            <TabsTrigger value="members" className="gap-1.5 text-xs sm:text-sm">
+              <Users className="h-4 w-4" />
+              Thành viên
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="gap-1.5 text-xs sm:text-sm">
+              <Settings className="h-4 w-4" />
+              Cài đặt
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Tab 1: Expenses List */}
         <TabsContent value="expenses" className="space-y-4">
@@ -254,6 +276,37 @@ export default async function GroupDetailPage({
             expenses={approvedExpenses as any}
             fundManagerId={group.fundManagerId}
             fundAllocations={group.fundAllocations as any}
+          />
+        </TabsContent>
+
+        {/* Tab 3: Group Fund Section */}
+        <TabsContent value="group-fund" className="space-y-4">
+          <GroupFundSection
+            groupId={id}
+            groupName={group.name}
+            currentUserId={userId}
+            isOwner={isOwner}
+            owner={{
+              id: group.owner.id,
+              displayName: group.owner.displayName,
+              bankName: group.owner.bankName,
+              accountNumber: group.owner.accountNumber,
+              accountName: group.owner.accountName,
+            }}
+            fundContributions={group.fundContributions as any}
+            expenses={approvedExpenses as any}
+            members={group.members.filter((m) => !m.isLeft) as any}
+          />
+        </TabsContent>
+
+        {/* Tab 4: Fund Allocations Section */}
+        <TabsContent value="funds" className="space-y-4">
+          <FundAllocationsSection
+            groupId={id}
+            fundAllocations={group.fundAllocations as any}
+            members={group.members.filter((m) => !m.isLeft) as any}
+            currentUserId={userId}
+            isFundManager={isFundManager}
           />
         </TabsContent>
 

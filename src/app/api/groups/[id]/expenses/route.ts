@@ -28,19 +28,19 @@ export async function POST(
   });
   if (!membership) return NextResponse.json({ error: "Không thuộc nhóm này" }, { status: 403 });
 
-  const { title, description, amount, paidById, splitType, date, splits, category, categoryId } =
+  const { title, description, amount, paidById, splitType, date, splits, category, categoryId, fundingSource } =
     await req.json();
+
+  const finalFundingSource = fundingSource === "FUND" ? "FUND" : "MEMBER";
 
   if (!title || !amount || !paidById || !splits?.length) {
     return NextResponse.json({ error: "Thiếu thông tin" }, { status: 400 });
   }
 
-  // Tự động duyệt hoá đơn nếu do chính trưởng nhóm hoặc quản lý quỹ tạo
+  // Tự động duyệt hoá đơn nếu do chính Trưởng nhóm tạo
   const isAutoApproved =
     membership.role === "OWNER" ||
-    group.ownerId === userId ||
-    group.fundManagerId === userId ||
-    (group.fundManagerId === null && group.ownerId === userId);
+    group.ownerId === userId;
 
   try {
     const isApproved = isAutoApproved;
@@ -57,6 +57,7 @@ export async function POST(
         status: isApproved ? "APPROVED" : "PENDING",
         category: category || "Khác",
         categoryId: categoryId || null,
+        fundingSource: finalFundingSource,
         splits: {
           create: splits.map((s: { userId: string; amount: number; shares?: number }) => ({
             userId: s.userId,

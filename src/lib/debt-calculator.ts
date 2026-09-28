@@ -22,6 +22,7 @@ export function calculateDebts(
     id: string;
     amount: number;
     paidById: string;
+    fundingSource?: string;
     splits: Array<{
       userId: string;
       amount: number;
@@ -54,6 +55,20 @@ export function calculateDebts(
 
   // Cộng/trừ từ expenses
   for (const expense of expenses) {
+    if (expense.fundingSource === "FUND") {
+      // Chi từ Quỹ nhóm:
+      // Các thành viên thụ hưởng không nợ ai (vì quỹ đài thọ).
+      // Nếu thành viên khác bỏ tiền túi ra chi thay cho quỹ (paidById !== ownerId),
+      // thì Trưởng nhóm (người giữ quỹ) nợ thành viên đó khoản tiền tương ứng để hoàn lại tiền túi.
+      if (expense.paidById !== ownerId) {
+        const creditorBalance = balanceMap.get(expense.paidById) ?? 0;
+        const debtorBalance = balanceMap.get(ownerId) ?? 0;
+        balanceMap.set(expense.paidById, creditorBalance + expense.amount);
+        balanceMap.set(ownerId, debtorBalance - expense.amount);
+      }
+      continue;
+    }
+
     for (const split of expense.splits) {
       if (split.isPaid) continue;
 

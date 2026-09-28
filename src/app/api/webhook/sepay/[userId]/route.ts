@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import { eventEmitter } from "@/lib/events";
 import { sendMultipleUsersZaloNotification } from "@/lib/zalo";
 import { formatVND } from "@/lib/utils/format";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(
   req: NextRequest,
@@ -130,8 +131,58 @@ ${updatedSettlement.fromUser.displayName} ➔ ${updatedSettlement.toUser.display
         } else {
           console.log(`[SePay Webhook] Không khớp Settlement hoặc đã được xác nhận trước: ID ${settlementId}`);
         }
-      } else {
-        console.log(`[SePay Webhook] Nội dung chuyển khoản không chứa mã định danh GS: "${data.content}"`);
+      }
+
+      // 6.2 Xử lý Góp quỹ (mã định danh GQ[contributionId])
+      const matchContribution = data.content.match(/GQ([a-zA-Z0-9]+)/);
+      if (matchContribution) {
+        const contributionId = matchContribution[1];
+        const contribution = await prisma.fundContribution.findUnique({
+          where: { id: contributionId },
+          include: {
+            group: { select: { id: true, name: true, ownerId: true } },
+            user: { select: { id: true, displayName: true } },
+          },
+        });
+
+        if (contribution && contribution.status !== "CONFIRMED") {
+          await prisma.fundContribution.update({
+            where: { id: contributionId },
+            data: {
+              status: "CONFIRMED",
+              confirmedAt: new Date(),
+            },
+          });
+
+          // Phát sóng SSE
+          eventEmitter.emit(`group:${contribution.groupId}`, { type: "REFRESH" });
+
+          // Thông báo In-app cho người góp quỹ
+          await createNotification({
+            userId: contribution.userId,
+            title: "Khoản góp quỹ đã được xác nhận tự động",
+            content: `Hệ thống đã tự động xác nhận khoản góp quỹ ${formatVND(contribution.amount)} vào nhóm "${contribution.group.name}" qua SePay.`,
+            type: "EXPENSE_APPROVED",
+            link: `/groups/${contribution.groupId}`,
+            entityId: contribution.id,
+          });
+
+          // Gửi thông báo Zalo Bot
+          const msg = `⚡ [Tự động xác nhận Góp quỹ VietQR]
+👥 Nhóm: ${contribution.group.name}
+👤 Người góp: ${contribution.user.displayName}
+💰 Số tiền: ${formatVND(contribution.amount)}
+📌 Trạng thái: 🟢 Đã ghi nhận vào Quỹ nhóm qua SePay!`;
+
+          sendMultipleUsersZaloNotification(
+            [contribution.userId, contribution.group.ownerId],
+            msg
+          );
+
+          console.log(`[SePay Webhook] Đã xác nhận tự động FundContribution ID ${contributionId} số tiền ${data.transferAmount}đ.`);
+        } else {
+          console.log(`[SePay Webhook] Không khớp FundContribution hoặc đã được xác nhận trước: ID ${contributionId}`);
+        }
       }
     }
 

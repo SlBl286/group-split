@@ -450,7 +450,7 @@ export function SettingsForm({ user }: { user: UserSettings }) {
           <div className="p-3.5 rounded-xl border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 space-y-1.5">
             <div className="flex items-center gap-2 font-bold text-amber-600 dark:text-amber-400">
               <Crown className="h-4 w-4 shrink-0" />
-              <span>Trưởng nhóm (Owner)</span>
+              <span>Trưởng nhóm</span>
             </div>
             <p className="text-muted-foreground leading-relaxed text-[11px]">
               Bắt buộc cấu hình đầy đủ <strong className="text-foreground font-semibold">Thông tin ngân hàng</strong> và <strong className="text-foreground font-semibold">SePay Webhook Secret</strong> để được tạo nhóm. Hệ thống tự động sinh mã VietQR chuẩn và tự động gạch nợ thông qua SePay khi nhận khoản thanh toán.

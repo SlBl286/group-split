@@ -20,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { formatVND, formatDate, getInitials } from "@/lib/utils/format";
-import { ArrowRight, CheckCircle2, Clock, Loader2, QrCode, Copy, Check, Banknote, HelpCircle, Calendar, ArrowLeft, ChevronDown, Coins, FileText } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock, Loader2, QrCode, Copy, Check, Banknote, HelpCircle, Calendar, ArrowLeft, ChevronDown, FileText } from "lucide-react";
 import type { DebtEntry } from "@/lib/debt-calculator";
 import { DebtBreakdownDialog } from "./debt-breakdown-dialog";
 
@@ -105,7 +105,6 @@ export function SettlementSection({
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedMemberId, setSelectedMemberId] = useState<string>("all");
-  const [allocPage, setAllocPage] = useState(1);
   const [breakdownDebt, setBreakdownDebt] = useState<DebtEntry | null>(null);
 
   const visibleSettlements = (settlements || []).filter(
@@ -167,49 +166,7 @@ export function SettlementSection({
     ? (members || []).find((m) => m?.userId === selectedMemberId)?.user?.displayName || null
     : null;
 
-  const isFundManager =
-    fundManagerId === currentUserId ||
-    (fundManagerId === null && owner?.id === currentUserId);
 
-  // Group allocations by date (day) and note
-  const groupedAllocationsByBatch = (fundAllocations || []).reduce((acc, curr) => {
-    if (!curr) return acc;
-    const rawDate: any = curr.date;
-    let dateStr = "";
-    if (typeof rawDate === "string") {
-      dateStr = rawDate.split("T")[0];
-    } else if (rawDate && typeof rawDate === "object" && "toISOString" in rawDate) {
-      dateStr = (rawDate as Date).toISOString().split("T")[0];
-    }
-
-    const fromName = curr.fromUserName || (curr as any).fromUser?.displayName || "Thành viên";
-    const toName = curr.toUserName || (curr as any).toUser?.displayName || "Thành viên";
-
-    const key = `${dateStr}-${curr.note || ""}-${curr.amount || 0}`;
-    if (!acc[key]) {
-      acc[key] = {
-        date: rawDate,
-        amount: curr.amount || 0,
-        note: curr.note || null,
-        fromUserName: fromName,
-        recipients: [],
-      };
-    }
-    acc[key].recipients.push(toName);
-    return acc;
-  }, {} as Record<string, { date: any; amount: number; note: string | null; fromUserName: string; recipients: string[] }>);
-
-  const allocationsList = Object.values(groupedAllocationsByBatch).sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
-
-  // Pagination for Allocations
-  const allocsPerPage = 10;
-  const totalAllocPages = Math.ceil(allocationsList.length / allocsPerPage);
-  const paginatedAllocs = allocationsList.slice(
-    (allocPage - 1) * allocsPerPage,
-    allocPage * allocsPerPage
-  );
 
 
 
@@ -570,93 +527,7 @@ export function SettlementSection({
         </Card>
       )}
 
-      {/* Lịch sử cấp quỹ */}
-      {allocationsList.length > 0 && (
-        <Card>
-          <CardContent className="pt-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-sm flex items-center gap-1.5">
-                <Coins className="h-4 w-4 text-amber-500" />
-                Lịch sử cấp quỹ hàng ngày
-              </h3>
-            </div>
 
-            <div className="space-y-4">
-              {paginatedAllocs.map((batch) => {
-                const batchKey = `${batch.date}-${batch.note || ""}-${batch.amount}`;
-                return (
-                  <div
-                    key={batchKey}
-                    className="flex flex-col p-3 rounded-lg bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/10 text-xs space-y-2"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-amber-500/10 pb-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="font-bold text-amber-600 dark:text-amber-400">
-                          +{formatVND(batch.amount)} / người
-                        </span>
-                        {batch.note && (
-                          <span className="text-muted-foreground truncate max-w-[200px]">
-                            ({batch.note})
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-muted-foreground font-mono font-medium">
-                        Phát bởi: {batch.fromUserName} • {formatDate(batch.date)}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1.5 items-center">
-                      <span className="text-[10px] font-bold text-muted-foreground shrink-0 uppercase tracking-wider">
-                        Người nhận ({batch.recipients.length}):
-                      </span>
-                      {batch.recipients.map((name, idx) => (
-                        <Badge
-                          key={idx}
-                          variant="outline"
-                          className="bg-card text-[10px] py-0 px-2 font-semibold"
-                        >
-                          {name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Pagination for Allocations */}
-            {totalAllocPages > 1 && (
-              <div className="flex items-center justify-between pt-4 px-1 border-t mt-4">
-                <span className="text-xs text-muted-foreground">
-                  Trang {allocPage} / {totalAllocPages} (Tổng {allocationsList.length} đợt)
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setAllocPage((prev) => Math.max(prev - 1, 1))}
-                    disabled={allocPage === 1}
-                    className="h-8 gap-1 font-semibold text-xs"
-                  >
-                    <ArrowLeft className="h-3.5 w-3.5" />
-                    Trang trước
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setAllocPage((prev) => Math.min(prev + 1, totalAllocPages))}
-                    disabled={allocPage === totalAllocPages}
-                    className="h-8 gap-1 font-semibold text-xs"
-                  >
-                    Trang sau
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       <DebtBreakdownDialog
         debt={breakdownDebt}

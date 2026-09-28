@@ -170,7 +170,7 @@ export function FundManagerSettings({
                         <Badge variant="outline" className="text-[9px] px-1 text-muted-foreground">Mặc định</Badge>
                       </div>
                       <p className="text-[10px] text-muted-foreground truncate">
-                        Quỹ do Trưởng nhóm (Owner) tự quản lý
+                        Quỹ do Trưởng nhóm tự quản lý
                       </p>
                     </div>
                   </div>

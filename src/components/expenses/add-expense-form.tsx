@@ -13,7 +13,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { formatVND, getInitials } from "@/lib/utils/format";
-import { Loader2, Equal, Sliders, Check, ChevronDown, Clock } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Loader2, Equal, Sliders, Check, ChevronDown, Clock, Wallet, Coins, Users, ShieldCheck } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { CategorySelectDropdown } from "@/components/expenses/category-select-dropdown";
 
@@ -80,6 +81,7 @@ export interface InitialExpense {
   category: string;
   categoryId?: string | null;
   paidById: string;
+  fundingSource?: string;
   createdAt: string | Date;
   splits: {
     id?: string;
@@ -109,6 +111,9 @@ export function AddExpenseForm({ groupId, members, currentUserId, initialExpense
   const router = useRouter();
   const isEdit = !!initialExpense;
   const [loading, setLoading] = useState(false);
+  const [fundingSource, setFundingSource] = useState<"MEMBER" | "FUND">(
+    initialExpense?.fundingSource === "FUND" ? "FUND" : "MEMBER"
+  );
   const [splitType, setSplitType] = useState<"EQUAL" | "CUSTOM">(
     initialExpense?.splitType || "EQUAL"
   );
@@ -430,6 +435,7 @@ export function AddExpenseForm({ groupId, members, currentUserId, initialExpense
           splits,
           category,
           categoryId: selectedCategoryId,
+          fundingSource,
         }),
       });
 
@@ -440,11 +446,16 @@ export function AddExpenseForm({ groupId, members, currentUserId, initialExpense
         setLoading(false);
       } else {
         toast.success(
-          isEdit
-            ? "Đã cập nhật hoá đơn thành công!"
-            : "Đã thêm hoá đơn! Đang chờ owner duyệt."
+          data?.status === "APPROVED"
+            ? isEdit
+              ? "Đã cập nhật hoá đơn thành công!"
+              : "Đã thêm hoá đơn thành công!"
+            : isEdit
+            ? "Đã cập nhật hoá đơn! Đang chờ Trưởng nhóm duyệt lại."
+            : "Đã thêm hoá đơn! Đang chờ Trưởng nhóm duyệt."
         );
         router.push(`/groups/${groupId}`);
+        router.refresh();
       }
     } catch (err) {
       console.error("Lỗi khi lưu hoá đơn:", err);
@@ -549,10 +560,83 @@ export function AddExpenseForm({ groupId, members, currentUserId, initialExpense
         </CardContent>
       </Card>
 
+      {/* Funding Source Card */}
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <div className="space-y-1">
+            <Label className="text-sm font-bold flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-primary" />
+              Nguồn tiền chi trả *
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Chọn chi phí này được trích từ nguồn tiền nào
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setFundingSource("MEMBER")}
+              className={cn(
+                "p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3",
+                fundingSource === "MEMBER"
+                  ? "border-primary bg-primary/10 text-primary shadow-xs"
+                  : "border-border hover:bg-muted/50 text-muted-foreground"
+              )}
+            >
+              <Users className="h-5 w-5 shrink-0 mt-0.5 text-primary" />
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-foreground">Cá nhân tự chi</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Một thành viên bỏ tiền túi ra thanh toán, số tiền được chia cho người tham gia và phát sinh công nợ cá nhân.
+                </p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFundingSource("FUND")}
+              className={cn(
+                "p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3",
+                fundingSource === "FUND"
+                  ? "border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-300 shadow-xs"
+                  : "border-border hover:bg-muted/50 text-muted-foreground"
+              )}
+            >
+              <Coins className="h-5 w-5 shrink-0 mt-0.5 text-amber-500" />
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-foreground">Chi từ Quỹ nhóm</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Trích trực tiếp từ Quỹ chung của nhóm. Các thành viên tham gia không phải trả nợ cá nhân (quỹ đài thọ).
+                </p>
+              </div>
+            </button>
+          </div>
+
+          {fundingSource === "FUND" && (
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-200 space-y-1">
+              <p className="font-semibold flex items-center gap-1.5">
+                <ShieldCheck className="h-4 w-4" />
+                Lưu ý khi chi từ Quỹ nhóm:
+              </p>
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                - Tiền sẽ trừ trực tiếp vào Quỹ nhóm sau khi Trưởng nhóm phê duyệt.
+                <br />
+                - Phía dưới, hãy chọn người thực tế đã thanh toán (Trưởng nhóm rút tiền quỹ hoặc thành viên ứng tiền túi để được Trưởng nhóm hoàn lại).
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Payer */}
       <Card>
         <CardContent className="pt-6 space-y-3">
-          <Label>Ai là người đã trả? *</Label>
+          <Label>
+            {fundingSource === "FUND"
+              ? "Ai là người đã thanh toán thực tế? (Trưởng nhóm hoặc người ứng tiền túi) *"
+              : "Ai là người đã trả? *"}
+          </Label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {members.map((m) => (
               <button

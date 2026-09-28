@@ -83,7 +83,7 @@ export default async function JoinGroupPage({
 
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-6">
             <Users className="h-4 w-4" />
-            {group.members.length} thành viên • Owner: {group.owner.displayName}
+            {group.members.length} thành viên • Trưởng nhóm: {group.owner.displayName}
           </div>
 
           <JoinGroupButton groupId={group.id} initialPending={!!pendingRequest} />

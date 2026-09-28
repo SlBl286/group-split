@@ -55,6 +55,7 @@ model User {
   receivedInvitations     GroupInvitation[] @relation("GroupInvitationInvited")
   joinRequests            GroupJoinRequest[]
   notifications           Notification[]    @relation("NotificationRecipient")
+  fundContributions       FundContribution[] @relation("FundContributions")
 }
 
 model SystemSetting {
@@ -83,6 +84,7 @@ model Group {
   expenses        Expense[]
   settlements     Settlement[]
   fundAllocations FundAllocation[]
+  fundContributions FundContribution[]
   categories      Category[]
   invitations     GroupInvitation[]
   joinRequests    GroupJoinRequest[]
@@ -118,6 +120,7 @@ model Expense {
   date        DateTime      @default(now())
   createdAt   DateTime      @default(now())
   category    String        @default("Khác")
+  fundingSource String      @default("MEMBER") // "MEMBER" | "FUND"
 
   group   Group  @relation(fields: [groupId], references: [id])
   groupId String
@@ -206,6 +209,21 @@ model FundAllocation {
 
   toUser     User   @relation("FundAllocationTo", fields: [toUserId], references: [id])
   toUserId   String
+}
+
+model FundContribution {
+  id          String    @id @default(cuid())
+  amount      Float
+  note        String?
+  status      String    @default("PENDING") // PENDING, CONFIRMED, REJECTED
+  createdAt   DateTime  @default(now())
+  confirmedAt DateTime?
+
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId String
+
+  user   User   @relation("FundContributions", fields: [userId], references: [id], onDelete: Cascade)
+  userId String
 }
 
 model Category {

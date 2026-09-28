@@ -161,19 +161,18 @@ export async function PUT(
     splits,
     category,
     categoryId,
+    fundingSource,
   } = await req.json();
 
   if (!title || !amount || !paidById || !splits?.length) {
     return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
   }
 
-  // Trưởng nhóm hoặc Quản lý quỹ sửa -> APPROVED; Thành viên thường sửa -> PENDING
-  const isAutoApproved =
-    isOwner ||
-    expense.group.fundManagerId === userId ||
-    (expense.group.fundManagerId === null && expense.group.ownerId === userId);
+  // Trưởng nhóm sửa -> APPROVED; Thành viên thường (kể cả Quản lý quỹ) sửa -> PENDING
+  const isAutoApproved = isOwner;
 
   const nextStatus = isAutoApproved ? "APPROVED" : "PENDING";
+  const finalFundingSource = fundingSource === "FUND" ? "FUND" : "MEMBER";
 
   try {
     const updatedExpense = await prisma.$transaction(async (tx) => {
@@ -194,6 +193,7 @@ export async function PUT(
           date: date ? new Date(date) : new Date(),
           category: category || "Khác",
           categoryId: categoryId || null,
+          fundingSource: finalFundingSource,
           status: nextStatus,
           splits: {
             create: splits.map(

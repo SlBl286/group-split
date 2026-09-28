@@ -17,7 +17,7 @@ export async function PATCH(
     const group = await prisma.group.findUnique({ where: { id: groupId } });
     if (!group) return NextResponse.json({ error: "Nhóm không tồn tại" }, { status: 404 });
     if (group.ownerId !== userId)
-      return NextResponse.json({ error: "Chỉ owner mới được chọn quản lý quỹ" }, { status: 403 });
+      return NextResponse.json({ error: "Chỉ Trưởng nhóm mới được chọn quản lý quỹ" }, { status: 403 });
 
     const { fundManagerId } = await req.json();
 

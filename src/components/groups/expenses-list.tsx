@@ -41,6 +41,7 @@ interface Expense {
   splitType: string;
   status: string;
   date: string;
+  fundingSource?: string;
   createdAt?: string | Date;
   createdById?: string;
   paidById?: string;
@@ -231,6 +232,11 @@ export function ExpensesList({
                         <Badge variant="secondary" className="text-[11px] font-medium py-0 px-2 h-5">
                           {expense.categoryIcon || categoryEmojis[expense.category] || "📦"} {expense.category}
                         </Badge>
+                        {expense.fundingSource === "FUND" && (
+                          <Badge variant="secondary" className="text-[11px] bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20 font-bold">
+                            🏦 Quỹ nhóm
+                          </Badge>
+                        )}
                         <Badge variant="outline" className="text-[11px] border-amber-500 text-amber-600 bg-amber-500/10">
                           Chờ duyệt
                         </Badge>
@@ -341,6 +347,11 @@ export function ExpensesList({
                           <Badge variant="secondary" className="text-[11px] font-medium py-0 px-2 h-5">
                             {expense.categoryIcon || categoryEmojis[expense.category] || "📦"} {expense.category}
                           </Badge>
+                          {expense.fundingSource === "FUND" && (
+                            <Badge variant="secondary" className="text-[11px] bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20 font-bold">
+                              🏦 Quỹ nhóm
+                            </Badge>
+                          )}
                           <div className="flex items-center gap-1">
                             {statusIcon[expense.status as keyof typeof statusIcon]}
                             <span className="text-xs text-muted-foreground">

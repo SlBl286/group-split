@@ -49,7 +49,7 @@ export default async function NewGroupPage() {
                 Yêu cầu thiết lập tài khoản
               </AlertTitle>
               <AlertDescription className="text-sm text-muted-foreground leading-relaxed mt-2">
-                Để làm Trưởng nhóm (Owner), bạn bắt buộc phải thiết lập **Thông tin ngân hàng** và **Tích hợp SePay Webhook** trước.
+                Để làm Trưởng nhóm, bạn bắt buộc phải thiết lập **Thông tin ngân hàng** và **Tích hợp SePay Webhook** trước.
                 Việc này giúp thành viên trong nhóm quét mã QR thanh toán nợ cho bạn được thuận tiện và hệ thống tự động gạch nợ ngay lập tức khi bạn nhận được tiền.
               </AlertDescription>
             </div>

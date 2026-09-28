@@ -166,6 +166,7 @@ export default async function EditExpensePage({
           category: expense.category,
           categoryId: expense.categoryId,
           paidById: expense.paidById,
+          fundingSource: expense.fundingSource,
           createdAt: expense.createdAt.toISOString(),
           splits: expense.splits.map((s) => ({
             id: s.id,
