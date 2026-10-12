@@ -23,7 +23,7 @@ export function RegisterForm() {
     e.preventDefault();
 
     if (!captchaData.answer) {
-      toast.error("Vui lòng giải câu đố CAPTCHA trước khi tạo tài khoản");
+      toast.error("Vui lòng hoàn thành phép tính CAPTCHA trước khi tạo tài khoản");
       return;
     }
 

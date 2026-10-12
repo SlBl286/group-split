@@ -37,7 +37,7 @@ function ResetPasswordForm() {
       return;
     }
     if (!captchaData.answer) {
-      toast.error("Vui lòng giải câu đố CAPTCHA");
+      toast.error("Vui lòng hoàn thành phép tính CAPTCHA");
       return;
     }
 

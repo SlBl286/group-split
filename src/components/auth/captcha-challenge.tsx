@@ -69,18 +69,18 @@ export function CaptchaChallenge({ onCaptchaChange }: CaptchaChallengeProps) {
           ) : (
             <RefreshCw className="h-3.5 w-3.5" />
           )}
-          Đổi câu hỏi
+          Đổi phép tính
         </Button>
       </div>
 
       <div className="space-y-2">
         <div className="bg-slate-900 text-slate-100 dark:bg-slate-950 dark:text-slate-200 text-xs sm:text-sm font-medium p-3 rounded-lg border border-slate-800 shadow-inner select-none leading-relaxed flex items-start gap-2">
-          <span className="font-bold text-amber-400 shrink-0 select-none">🧩 Đố:</span>
-          <span>{captcha ? captcha.question : "Đang tải câu đố..."}</span>
+          <span className="font-bold text-amber-400 shrink-0 select-none">🧮 Phép tính:</span>
+          <span>{captcha ? captcha.question : "Đang tải phép tính..."}</span>
         </div>
         <Input
           type="text"
-          placeholder="Nhập câu trả lời (không cần phân biệt hoa/thường, dấu)..."
+          placeholder="Nhập kết quả phép tính..."
           value={userAnswer}
           onChange={(e) => handleInputChange(e.target.value)}
           className="h-10 text-sm font-medium"

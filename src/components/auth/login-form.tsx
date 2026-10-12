@@ -25,7 +25,7 @@ export function LoginForm() {
     e.preventDefault();
 
     if (!captchaData.answer) {
-      toast.error("Vui lòng giải câu đố CAPTCHA trước khi đăng nhập");
+      toast.error("Vui lòng hoàn thành phép tính CAPTCHA trước khi đăng nhập");
       return;
     }
 
