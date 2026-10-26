@@ -22,6 +22,7 @@ import {
   Settings,
   Coins,
   Wallet,
+  BarChart3,
 } from "lucide-react";
 import { InviteSection } from "@/components/groups/invite-section";
 import { AddMemberForm } from "@/components/groups/add-member-form";
@@ -33,6 +34,7 @@ import { FundManagerSettings } from "@/components/groups/fund-manager-settings";
 import { FundAllocationTrigger } from "@/components/groups/fund-allocation-trigger";
 import { FundAllocationsSection } from "@/components/groups/fund-allocations-section";
 import { GroupFundSection } from "@/components/groups/group-fund-section";
+import { GroupReportSection } from "@/components/groups/group-report-section";
 import { MemberQRAction } from "@/components/groups/member-qr-action";
 import { GroupSettingsForm } from "@/components/groups/group-settings-form";
 import { LeaveGroupCard } from "@/components/groups/leave-group-card";
@@ -213,7 +215,7 @@ export default async function GroupDetailPage({
       {/* Main Content Tabs */}
       <Tabs defaultValue="expenses" className="space-y-4">
         <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0 scrollbar-none pb-1">
-          <TabsList className="grid grid-cols-6 w-full min-w-[560px] sm:min-w-0 lg:w-[720px] h-9 p-1">
+          <TabsList className="grid grid-cols-7 w-full min-w-[660px] sm:min-w-0 lg:w-[820px] h-9 p-1">
             <TabsTrigger value="expenses" className="gap-1.5 text-xs sm:text-sm">
               <Receipt className="h-4 w-4" />
               Hóa đơn
@@ -234,6 +236,10 @@ export default async function GroupDetailPage({
             <TabsTrigger value="funds" className="gap-1.5 text-xs sm:text-sm">
               <Coins className="h-4 w-4" />
               Cấp quỹ
+            </TabsTrigger>
+            <TabsTrigger value="report" className="gap-1.5 text-xs sm:text-sm">
+              <BarChart3 className="h-4 w-4" />
+              Báo cáo
             </TabsTrigger>
             <TabsTrigger value="members" className="gap-1.5 text-xs sm:text-sm">
               <Users className="h-4 w-4" />
@@ -310,7 +316,18 @@ export default async function GroupDetailPage({
           />
         </TabsContent>
 
-        {/* Tab 3: Members Section */}
+        {/* Tab 5: Report & Statistics Section */}
+        <TabsContent value="report" className="space-y-4">
+          <GroupReportSection
+            groupId={id}
+            groupName={group.name}
+            members={group.members.filter((m) => !m.isLeft) as any}
+            expenses={group.expenses as any}
+            isStandalone={false}
+          />
+        </TabsContent>
+
+        {/* Tab 6: Members Section */}
         <TabsContent value="members" className="space-y-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
