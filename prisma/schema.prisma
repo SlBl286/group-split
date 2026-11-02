@@ -2,7 +2,7 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider   = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -15,13 +15,13 @@ enum UserRole {
 }
 
 model User {
-  id                 String   @id @default(cuid())
-  username           String   @unique
-  passwordHash       String
-  displayName        String
-  avatar             String?
-  role               UserRole @default(USER)
-  createdAt          DateTime @default(now())
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  displayName  String
+  avatar       String?
+  role         UserRole @default(USER)
+  createdAt    DateTime @default(now())
 
   // Email Verification & Password Reset
   email                    String?   @unique
@@ -32,7 +32,7 @@ model User {
   passwordResetExpires     DateTime?
 
   // Zalo Bot Personal Notification Chat ID
-  zaloChatId         String?
+  zaloChatId String?
 
   // Bank Info for sharing and scanning QR
   bankName           String?
@@ -40,22 +40,23 @@ model User {
   accountName        String?
   sepayWebhookSecret String?
 
-  ownedGroups        Group[]        @relation("GroupOwner")
-  groupMemberships   GroupMember[]
-  paidExpenses       Expense[]      @relation("ExpensePaidBy")
-  createdExpenses    Expense[]      @relation("ExpenseCreatedBy")
-  expenseSplits      ExpenseSplit[]
-  settlementsFrom    Settlement[]   @relation("SettlementFrom")
-  settlementsTo      Settlement[]   @relation("SettlementTo")
-  sepayTransactions  SepayTransaction[]
-  managedGroups      Group[]        @relation("GroupFundManager")
-  fundAllocationsSent FundAllocation[] @relation("FundAllocationFrom")
-  fundAllocationsReceived FundAllocation[] @relation("FundAllocationTo")
-  sentInvitations         GroupInvitation[] @relation("GroupInvitationInviter")
-  receivedInvitations     GroupInvitation[] @relation("GroupInvitationInvited")
+  ownedGroups             Group[]            @relation("GroupOwner")
+  groupMemberships        GroupMember[]
+  paidExpenses            Expense[]          @relation("ExpensePaidBy")
+  createdExpenses         Expense[]          @relation("ExpenseCreatedBy")
+  expenseSplits           ExpenseSplit[]
+  settlementsFrom         Settlement[]       @relation("SettlementFrom")
+  settlementsTo           Settlement[]       @relation("SettlementTo")
+  sepayTransactions       SepayTransaction[]
+  managedGroups           Group[]            @relation("GroupFundManager")
+  fundAllocationsSent     FundAllocation[]   @relation("FundAllocationFrom")
+  fundAllocationsReceived FundAllocation[]   @relation("FundAllocationTo")
+  sentInvitations         GroupInvitation[]  @relation("GroupInvitationInviter")
+  receivedInvitations     GroupInvitation[]  @relation("GroupInvitationInvited")
   joinRequests            GroupJoinRequest[]
-  notifications           Notification[]    @relation("NotificationRecipient")
+  notifications           Notification[]     @relation("NotificationRecipient")
   fundContributions       FundContribution[] @relation("FundContributions")
+  devices                 UserDevice[]
 }
 
 model SystemSetting {
@@ -70,24 +71,24 @@ model Group {
   description String?
   avatar      String?
   inviteCode  String   @unique @default(cuid())
-  zaloChatId     String?
-  currency       String   @default("VND")
-  createdAt      DateTime @default(now())
+  zaloChatId  String?
+  currency    String   @default("VND")
+  createdAt   DateTime @default(now())
 
   owner   User   @relation("GroupOwner", fields: [ownerId], references: [id])
   ownerId String
 
-  fundManager   User?  @relation("GroupFundManager", fields: [fundManagerId], references: [id])
+  fundManager   User?   @relation("GroupFundManager", fields: [fundManagerId], references: [id])
   fundManagerId String?
 
-  members         GroupMember[]
-  expenses        Expense[]
-  settlements     Settlement[]
-  fundAllocations FundAllocation[]
+  members           GroupMember[]
+  expenses          Expense[]
+  settlements       Settlement[]
+  fundAllocations   FundAllocation[]
   fundContributions FundContribution[]
-  categories      Category[]
-  invitations     GroupInvitation[]
-  joinRequests    GroupJoinRequest[]
+  categories        Category[]
+  invitations       GroupInvitation[]
+  joinRequests      GroupJoinRequest[]
 }
 
 model GroupMember {
@@ -111,16 +112,16 @@ enum MemberRole {
 }
 
 model Expense {
-  id          String        @id @default(cuid())
-  title       String
-  description String?
-  amount      Float
-  splitType   SplitType     @default(EQUAL)
-  status      ExpenseStatus @default(PENDING)
-  date        DateTime      @default(now())
-  createdAt   DateTime      @default(now())
-  category    String        @default("Khác")
-  fundingSource String      @default("MEMBER") // "MEMBER" | "FUND"
+  id            String        @id @default(cuid())
+  title         String
+  description   String?
+  amount        Float
+  splitType     SplitType     @default(EQUAL)
+  status        ExpenseStatus @default(PENDING)
+  date          DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  category      String        @default("Khác")
+  fundingSource String        @default("MEMBER") // "MEMBER" | "FUND"
 
   group   Group  @relation(fields: [groupId], references: [id])
   groupId String
@@ -149,9 +150,9 @@ enum ExpenseStatus {
 }
 
 model ExpenseSplit {
-  id     String @id @default(cuid())
+  id     String  @id @default(cuid())
   amount Float
-  shares Float  @default(1)
+  shares Float   @default(1)
   isPaid Boolean @default(false)
 
   expense   Expense @relation(fields: [expenseId], references: [id])
@@ -190,16 +191,16 @@ model SepayTransaction {
   content         String
   createdAt       DateTime @default(now())
 
-  user            User     @relation(fields: [userId], references: [id])
-  userId          String
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
 }
 
 model FundAllocation {
-  id          String   @id @default(cuid())
-  amount      Float
-  note        String?
-  date        DateTime @default(now())
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  amount    Float
+  note      String?
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
 
   group   Group  @relation(fields: [groupId], references: [id])
   groupId String
@@ -207,8 +208,8 @@ model FundAllocation {
   fromUser   User   @relation("FundAllocationFrom", fields: [fromUserId], references: [id])
   fromUserId String
 
-  toUser     User   @relation("FundAllocationTo", fields: [toUserId], references: [id])
-  toUserId   String
+  toUser   User   @relation("FundAllocationTo", fields: [toUserId], references: [id])
+  toUserId String
 }
 
 model FundContribution {
@@ -227,18 +228,18 @@ model FundContribution {
 }
 
 model Category {
-  id        String     @id @default(cuid())
-  name      String
-  icon      String     @default("📦")
-  parentId  String?
-  parent    Category?  @relation("CategoryToCategory", fields: [parentId], references: [id], onDelete: Cascade)
-  children  Category[] @relation("CategoryToCategory")
-  
-  group     Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  groupId   String
-  
+  id       String     @id @default(cuid())
+  name     String
+  icon     String     @default("📦")
+  parentId String?
+  parent   Category?  @relation("CategoryToCategory", fields: [parentId], references: [id], onDelete: Cascade)
+  children Category[] @relation("CategoryToCategory")
+
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId String
+
   expenses  Expense[]
-  createdAt DateTime   @default(now())
+  createdAt DateTime  @default(now())
 }
 
 enum InvitationStatus {
@@ -309,4 +310,25 @@ model Notification {
   createdAt DateTime           @default(now())
 }
 
+model UserDevice {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId     String
+  deviceName   String
+  platform     String
+  osVersion    String?
+  appVersion   String?
+  pushToken    String?
+  refreshToken String?
+  ipAddress    String?
+  userAgent    String?
+  isActive     Boolean  @default(true)
+  lastActiveAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
+  @@unique([userId, deviceId])
+  @@index([userId])
+  @@index([pushToken])
+}

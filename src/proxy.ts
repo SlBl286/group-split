@@ -1,13 +1,12 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/auth.config";
 import { NextResponse } from "next/server";
+import { verifyMobileToken } from "@/lib/mobile-jwt";
 
 const { auth } = NextAuth(authConfig);
 
-export default auth((req) => {
+export default auth(async (req) => {
   const { pathname } = req.nextUrl;
-  const isLoggedIn = !!req.auth;
-  const user = req.auth?.user as any;
 
   // OWASP Security Headers
   const response = NextResponse.next();
@@ -41,6 +40,20 @@ export default auth((req) => {
   if (isPublicRoute || isInviteRoute || isWebhookRoute || isUploadsRoute) {
     return response;
   }
+
+  // Check Bearer Token from Mobile App
+  const authHeader = req.headers.get("authorization");
+  let mobileUser: any = null;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.substring(7).trim();
+    const payload = await verifyMobileToken(token);
+    if (payload && payload.tokenType === "access") {
+      mobileUser = payload;
+    }
+  }
+
+  const isLoggedIn = !!req.auth || !!mobileUser;
+  const user = (req.auth?.user as any) || mobileUser;
 
   // Yêu cầu đăng nhập cho tất cả các đường dẫn riêng tư
   if (!isLoggedIn) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
 import { createNotification } from "@/lib/notifications";
@@ -11,13 +11,13 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const user = await getAuthUser(req);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
-    const userId = session.user.id;
+    const userId = user.id;
     const { status } = await req.json();
 
     if (!["CONFIRMED", "REJECTED"].includes(status)) {
@@ -100,13 +100,13 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const user = await getAuthUser(req);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
-    const userId = session.user.id;
+    const userId = user.id;
 
     const contribution = await prisma.fundContribution.findUnique({
       where: { id },
@@ -124,7 +124,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Không tìm thấy khoản góp quỹ" }, { status: 404 });
     }
 
-    const isOwner = contribution.group.ownerId === userId;
+    const isOwner = contribution.group.ownerId !== userId;
     const isContributor = contribution.userId === userId;
 
     if (!isOwner && !isContributor) {

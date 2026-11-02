@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications";
 
@@ -7,11 +7,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: invitationId } = await params;
-  const userId = session.user.id!;
+  const userId = user.id;
 
   const invitation = await prisma.groupInvitation.findUnique({
     where: { id: invitationId },
@@ -67,7 +67,7 @@ export async function POST(
     await createNotification({
       userId: invitation.inviterId,
       title: `Lời mời nhóm được chấp nhận`,
-      content: `${session.user.name || "Thành viên"} đã đồng ý tham gia nhóm "${invitation.group.name}".`,
+      content: `${user.name || "Thành viên"} đã đồng ý tham gia nhóm "${invitation.group.name}".`,
       type: "INVITE_ACCEPTED",
       link: `/groups/${invitation.groupId}`,
       entityId: invitation.groupId,
@@ -84,7 +84,7 @@ export async function POST(
     await createNotification({
       userId: invitation.inviterId,
       title: `Lời mời nhóm bị từ chối`,
-      content: `${session.user.name || "Người dùng"} đã từ chối lời mời tham gia nhóm "${invitation.group.name}".`,
+      content: `${user.name || "Người dùng"} đã từ chối lời mời tham gia nhóm "${invitation.group.name}".`,
       type: "INVITE_DECLINED",
       link: `/groups/${invitation.groupId}`,
       entityId: invitation.groupId,

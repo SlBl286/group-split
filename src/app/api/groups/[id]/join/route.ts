@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { sendUserZaloNotification } from "@/lib/zalo";
 
@@ -8,11 +8,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const user = await getAuthUser(req);
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id: groupId } = await params;
-    const userId = session.user.id!;
+    const userId = user.id;
 
     const group = await prisma.group.findUnique({ where: { id: groupId } });
     if (!group) return NextResponse.json({ error: "Nhóm không tồn tại" }, { status: 404 });
@@ -20,12 +20,23 @@ export async function POST(
     const existingMember = await prisma.groupMember.findUnique({
       where: { userId_groupId: { userId, groupId } },
     });
-    if (existingMember && !existingMember.isLeft) return NextResponse.json({ error: "Bạn đã là thành viên của nhóm này" }, { status: 409 });
+    if (existingMember && !existingMember.isLeft) {
+      return NextResponse.json({ error: "Bạn đã là thành viên của nhóm này" }, { status: 409 });
+    }
 
-    const member = await prisma.groupMember.create({
-      data: { userId, groupId, role: "MEMBER" },
-      include: { user: { select: { displayName: true } } },
-    });
+    let member;
+    if (existingMember && existingMember.isLeft) {
+      member = await prisma.groupMember.update({
+        where: { id: existingMember.id },
+        data: { isLeft: false, leftAt: null },
+        include: { user: { select: { displayName: true } } },
+      });
+    } else {
+      member = await prisma.groupMember.create({
+        data: { userId, groupId, role: "MEMBER" },
+        include: { user: { select: { displayName: true } } },
+      });
+    }
 
     // Gửi thông báo Zalo Bot cá nhân cho Trưởng nhóm
     const msg = `👋 [Thành viên mới gia nhập nhóm ${group.name}]

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
 import { createNotification } from "@/lib/notifications";
@@ -10,11 +10,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
+  const session = await getAuthUser(req);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: groupId } = await params;
-  const userId = session.user.id!;
+  const userId = session.id;
 
   const membership = await prisma.groupMember.findUnique({
     where: { userId_groupId: { userId, groupId } },
@@ -49,7 +49,7 @@ export async function POST(
     await createNotification({
       userId: toUserId,
       title: `Yêu cầu xác nhận nhận tiền`,
-      content: `${session.user.name || "Thành viên"} đã đánh dấu trả cho bạn số tiền ${formatVND(amount)}. Vui lòng kiểm tra và xác nhận.`,
+      content: `${session.name || "Thành viên"} đã đánh dấu trả cho bạn số tiền ${formatVND(amount)}. Vui lòng kiểm tra và xác nhận.`,
       type: "SETTLEMENT_PENDING",
       link: `/groups/${groupId}`,
       entityId: settlement.id,

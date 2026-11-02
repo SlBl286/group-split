@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
 import { createNotification } from "@/lib/notifications";
@@ -11,13 +11,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const user = await getAuthUser(req);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id: groupId } = await params;
-    const userId = session.user.id;
+    const userId = user.id;
 
     const group = await prisma.group.findUnique({
       where: { id: groupId },
@@ -84,7 +84,7 @@ export async function POST(
       await createNotification({
         userId: group.ownerId,
         title: "Khoản góp quỹ mới chờ xác nhận",
-        content: `${session.user.name || "Thành viên"} đã tạo yêu cầu góp quỹ ${formatVND(parsedAmount)} vào nhóm "${group.name}".`,
+        content: `${user.name || "Thành viên"} đã tạo yêu cầu góp quỹ ${formatVND(parsedAmount)} vào nhóm "${group.name}".`,
         type: "EXPENSE_PENDING",
         link: `/groups/${groupId}`,
         entityId: contribution.id,
@@ -92,7 +92,7 @@ export async function POST(
 
       const zaloMsg = `🏦 [Góp quỹ nhóm mới chờ duyệt]
 👥 Nhóm: ${group.name}
-👤 Người góp: ${session.user.name || "Thành viên"}
+👤 Người góp: ${user.name || "Thành viên"}
 💰 Số tiền: ${formatVND(parsedAmount)}
 📝 Ghi chú: ${contribution.note || "Góp quỹ hoạt động"}
 📌 Cú pháp chuyển khoản: GQ${contribution.id}

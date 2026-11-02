@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
 
@@ -8,11 +8,11 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: groupId } = await params;
-  const userId = session.user.id!;
+  const userId = user.id;
 
   // Kiểm tra thành viên nhóm
   const membership = await prisma.groupMember.findUnique({
@@ -35,11 +35,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: groupId } = await params;
-  const userId = session.user.id!;
+  const userId = user.id;
 
   // Chỉ trưởng nhóm (Owner) mới được quản lý danh mục
   const group = await prisma.group.findUnique({ where: { id: groupId } });

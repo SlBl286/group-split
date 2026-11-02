@@ -28,7 +28,7 @@ export function BrandLogo({
     <div className={cn("flex items-center select-none font-bold tracking-tight", currentSize.gap, className)}>
       <div className="relative shrink-0 flex items-center justify-center">
         <Image
-          src="/logo1.png"
+          src="/logo.png"
           alt="GroupSplit Logo"
           width={currentSize.img * 2}
           height={currentSize.img * 2}

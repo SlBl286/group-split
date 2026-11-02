@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { calculateDebts } from "@/lib/debt-calculator";
 import { createNotification } from "@/lib/notifications";
@@ -9,11 +9,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: groupId } = await params;
-  const userId = session.user.id!;
+  const userId = user.id;
 
   const group = await prisma.group.findUnique({
     where: { id: groupId },
@@ -75,7 +75,7 @@ export async function POST(
   await createNotification({
     userId: group.ownerId,
     title: `Thành viên rời nhóm`,
-    content: `${session.user.name || "Thành viên"} đã rời khỏi nhóm "${group.name}".`,
+    content: `${user.name || "Thành viên"} đã rời khỏi nhóm "${group.name}".`,
     type: "MEMBER_LEFT",
     link: `/groups/${groupId}`,
     entityId: groupId,

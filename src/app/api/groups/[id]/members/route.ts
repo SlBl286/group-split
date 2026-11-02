@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications";
 
@@ -7,11 +7,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: groupId } = await params;
-  const inviterId = session.user.id!;
+  const inviterId = user.id;
 
   // Only owner can invite members by username
   const group = await prisma.group.findUnique({ where: { id: groupId } });
@@ -61,7 +61,7 @@ export async function POST(
   await createNotification({
     userId: targetUser.id,
     title: `Lời mời tham gia nhóm "${group.name}"`,
-    content: `${session.user.name || "Trưởng nhóm"} đã mời bạn tham gia nhóm "${group.name}".`,
+    content: `${user.name || "Trưởng nhóm"} đã mời bạn tham gia nhóm "${group.name}".`,
     type: "GROUP_INVITE",
     entityId: invitation.id,
     link: `/notifications`,

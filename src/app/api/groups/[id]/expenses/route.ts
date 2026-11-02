@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
 import { createNotification } from "@/lib/notifications";
@@ -10,11 +10,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
+  const session = await getAuthUser(req);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: groupId } = await params;
-  const userId = session.user.id!;
+  const userId = session.id;
 
   // Check group & membership
   const group = await prisma.group.findUnique({
@@ -79,7 +79,7 @@ export async function POST(
         await createNotification({
           userId: group.ownerId,
           title: `Hóa đơn mới chờ duyệt`,
-          content: `${session.user.name || "Thành viên"} đã tạo hóa đơn "${title}" (${formatVND(amount)}) cần bạn duyệt.`,
+          content: `${session.name || "Thành viên"} đã tạo hóa đơn "${title}" (${formatVND(amount)}) cần bạn duyệt.`,
           type: "EXPENSE_PENDING",
           link: `/groups/${groupId}`,
           entityId: expense.id,
@@ -89,7 +89,7 @@ export async function POST(
         const zaloMsg = `🧾 [Hóa đơn mới chờ duyệt]
 📌 ${title}
 💰 Tổng hóa đơn: ${formatVND(amount)}
-👤 Người tạo: ${session.user.name || "Thành viên"}
+👤 Người tạo: ${session.name || "Thành viên"}
 👤 Người chi: ${expense.paidBy.displayName}
 🏷️ Danh mục: ${category || "Khác"}
 📌 Trạng thái: ⏳ Chờ Trưởng nhóm duyệt

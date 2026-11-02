@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
 import { createNotification } from "@/lib/notifications";
@@ -10,11 +10,11 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
+  const session = await getAuthUser(req);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const userId = session.user.id!;
+  const userId = session.id;
 
   const settlement = await prisma.settlement.findUnique({ where: { id } });
   if (!settlement) return NextResponse.json({ error: "Không tìm thấy" }, { status: 404 });
@@ -41,7 +41,7 @@ export async function PATCH(
   await createNotification({
     userId: settlement.fromUserId,
     title: `Khoản thanh toán nợ đã được xác nhận`,
-    content: `${session.user.name || "Người nhận"} đã xác nhận đã nhận khoản tiền ${formatVND(settlement.amount)} từ bạn.`,
+    content: `${session.name || "Người nhận"} đã xác nhận đã nhận khoản tiền ${formatVND(settlement.amount)} từ bạn.`,
     type: "SETTLEMENT_CONFIRMED",
     link: `/groups/${settlement.groupId}`,
     entityId: settlement.id,

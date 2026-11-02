@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
 import { createNotification } from "@/lib/notifications";
@@ -10,11 +10,11 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: expenseId } = await params;
-  const userId = session.user.id!;
+  const userId = user.id;
   const { status } = await req.json();
 
   const expense = await prisma.expense.findUnique({
@@ -98,48 +98,38 @@ export async function PATCH(
         ? `💵 Phần của bạn: ${formatVND(userSplit.amount)}${sharesSuffix}`
         : "";
 
-      const msg = `🧾 [Hóa đơn đã được duyệt]
-📌 ${expense.title}
-💰 Tổng hóa đơn: ${formatVND(expense.amount)}
-${shareLine ? `${shareLine}\n` : ""}👤 Người chi: ${expense.paidBy.displayName}${payerNote}
-🏷️ Danh mục: ${expense.category || "Khác"}
-📌 Trạng thái: ✅ Đã phê duyệt bởi Trưởng nhóm`;
+      const noteLines = [
+        `🧾 [Hóa đơn đã được duyệt]`,
+        `👥 Nhóm: ${expense.group.name}`,
+        `📌 Khoản chi: ${expense.title}`,
+        `💰 Tổng tiền: ${formatVND(expense.amount)}`,
+        `👤 Người trả: ${expense.paidBy.displayName}${payerNote}`,
+        shareLine,
+        `✅ Người duyệt: ${user.name || "Trưởng nhóm"}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
 
-      sendUserZaloNotification(targetUserId, msg);
+      sendUserZaloNotification(targetUserId, noteLines);
     }
   } else if (status === "REJECTED") {
-    // 1. Thông báo In-app cho người tạo hóa đơn
+    // Thông báo cho người tạo khi bị từ chối
     if (expense.createdById !== userId) {
       await createNotification({
         userId: expense.createdById,
         title: `Hóa đơn bị từ chối`,
-        content: `Hóa đơn "${expense.title}" đã bị Trưởng nhóm từ chối.`,
-        type: "EXPENSE_REJECTED",
+        content: `Hóa đơn "${expense.title}" đã bị Trưởng nhóm từ chối duyệt.`,
+        type: "EXPENSE_PENDING",
         link: `/groups/${expense.groupId}`,
         entityId: expense.id,
       });
     }
 
-    // 2. Thông báo In-app cho người chi trả (nếu khác người tạo)
-    if (expense.paidById !== userId && expense.paidById !== expense.createdById) {
-      await createNotification({
-        userId: expense.paidById,
-        title: `Hóa đơn bị từ chối`,
-        content: `Hóa đơn "${expense.title}" do bạn chi trả đã bị Trưởng nhóm từ chối.`,
-        type: "EXPENSE_REJECTED",
-        link: `/groups/${expense.groupId}`,
-        entityId: expense.id,
-      });
-    }
-
-    // 3. Gửi thông báo Zalo Bot cho người tạo và người chi trả
-    const rejectMsg = `❌ [Xử lý hóa đơn]
-Hóa đơn: ${expense.title} (${formatVND(expense.amount)})
-Trạng thái: Đã từ chối bởi Trưởng nhóm`;
-
-    const rejectTargets = Array.from(new Set([expense.createdById, expense.paidById]));
-    sendMultipleUsersZaloNotification(rejectTargets, rejectMsg);
+    sendUserZaloNotification(
+      expense.createdById,
+      `❌ [Hóa đơn bị từ chối]\n👥 Nhóm: ${expense.group.name}\n📌 Khoản chi: ${expense.title}\n💰 Số tiền: ${formatVND(expense.amount)}\nNgười duyệt đã từ chối hóa đơn này.`
+    );
   }
 
-  return NextResponse.json(updated);
+  return NextResponse.json({ success: true, expense: updated });
 }

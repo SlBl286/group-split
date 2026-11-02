@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
 import { createNotification } from "@/lib/notifications";
@@ -10,11 +10,11 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const userId = session.user.id!;
+  const userId = user.id;
 
   try {
     const settlement = await prisma.settlement.findUnique({ where: { id } });
@@ -47,11 +47,11 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const userId = session.user.id!;
+  const userId = user.id;
 
   try {
     const { note } = await req.json();
@@ -82,7 +82,7 @@ export async function PATCH(
       await createNotification({
         userId: settlement.toUserId,
         title: `Yêu cầu xác nhận nhận tiền`,
-        content: `${session.user.name || "Thành viên"} đã đánh dấu trả cho bạn số tiền ${formatVND(settlement.amount)}. Vui lòng kiểm tra và xác nhận.`,
+        content: `${user.name || "Thành viên"} đã đánh dấu trả cho bạn số tiền ${formatVND(settlement.amount)}. Vui lòng kiểm tra và xác nhận.`,
         type: "SETTLEMENT_PENDING",
         link: `/groups/${settlement.groupId}`,
         entityId: settlement.id,

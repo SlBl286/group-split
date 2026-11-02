@@ -1,25 +1,68 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { sendVerificationEmail } from "@/lib/email";
 
-export async function PATCH(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function GET(req: NextRequest) {
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = session.user.id!;
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      email: true,
+      isEmailVerified: true,
+      avatar: true,
+      bankName: true,
+      accountNumber: true,
+      accountName: true,
+      sepayWebhookSecret: true,
+    },
+  });
+
+  if (!dbUser) return NextResponse.json({ error: "Người dùng không tồn tại" }, { status: 404 });
+  return NextResponse.json(dbUser);
+}
+
+export async function PATCH(req: NextRequest) {
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const userId = user.id;
 
   try {
-    const formData = await req.formData();
-    const displayName = formData.get("displayName") as string;
-    const emailRaw = formData.get("email") as string | null;
-    const bankName = formData.get("bankName") as string;
-    const accountNumber = formData.get("accountNumber") as string;
-    const accountName = formData.get("accountName") as string;
-    const sepayWebhookSecret = formData.get("sepayWebhookSecret") as string | null;
-    const avatarFile = formData.get("avatar") as File | null;
+    let displayName: string;
+    let emailRaw: string | null = null;
+    let bankName: string;
+    let accountNumber: string;
+    let accountName: string;
+    let sepayWebhookSecret: string | null = null;
+    let avatarFile: File | null = null;
+
+    const contentType = req.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const body = await req.json();
+      displayName = body.displayName;
+      emailRaw = body.email || null;
+      bankName = body.bankName;
+      accountNumber = body.accountNumber;
+      accountName = body.accountName;
+      sepayWebhookSecret = body.sepayWebhookSecret || null;
+    } else {
+      const formData = await req.formData();
+      displayName = formData.get("displayName") as string;
+      emailRaw = formData.get("email") as string | null;
+      bankName = formData.get("bankName") as string;
+      accountNumber = formData.get("accountNumber") as string;
+      accountName = formData.get("accountName") as string;
+      sepayWebhookSecret = formData.get("sepayWebhookSecret") as string | null;
+      avatarFile = formData.get("avatar") as File | null;
+    }
 
     if (!displayName) {
       return NextResponse.json(
@@ -55,64 +98,60 @@ export async function PATCH(req: NextRequest) {
     let emailChanged = false;
     let otpGenerated = false;
 
+    // Kiểm tra và xử lý email
     if (emailRaw !== null && emailRaw !== undefined) {
       const cleanEmail = emailRaw.trim().toLowerCase();
-
       if (cleanEmail === "") {
         // Người dùng xóa email
-        if (currentUser.email) {
-          emailData = {
-            email: null,
-            isEmailVerified: false,
-            emailVerificationToken: null,
-            emailVerificationExpires: null,
-          };
-        }
-      } else {
-        // Validate định dạng email
+        emailData = {
+          email: null,
+          isEmailVerified: false,
+          emailVerificationToken: null,
+          emailVerificationExpires: null,
+        };
+      } else if (cleanEmail !== currentUser.email?.toLowerCase()) {
+        // Kiểm tra định dạng email
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(cleanEmail)) {
           return NextResponse.json(
-            { error: "Địa chỉ Email không đúng định dạng" },
+            { error: "Định dạng email không hợp lệ" },
             { status: 400 }
           );
         }
 
-        // Kiểm tra xem email có bị trùng với tài khoản khác không
-        const existingWithEmail = await prisma.user.findFirst({
+        // Kiểm tra email đã có người dùng khác sử dụng chưa
+        const existingEmailUser = await prisma.user.findFirst({
           where: {
-            email: cleanEmail,
-            NOT: { id: userId },
+            email: { equals: cleanEmail, mode: "insensitive" },
+            id: { not: userId },
           },
         });
 
-        if (existingWithEmail) {
+        if (existingEmailUser) {
           return NextResponse.json(
-            { error: "Địa chỉ Email này đã được liên kết với một tài khoản khác" },
+            { error: "Email này đã được sử dụng bởi tài khoản khác" },
             { status: 400 }
           );
         }
 
-        // Nếu email mới khác với email cũ
-        if (currentUser.email?.toLowerCase() !== cleanEmail) {
+        // Tạo mã OTP 6 số
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 phút
+
+        emailData = {
+          email: cleanEmail,
+          isEmailVerified: false,
+          emailVerificationToken: otpCode,
+          emailVerificationExpires: otpExpires,
+        };
+
+        // Gửi mã OTP xác thực email
+        try {
+          await sendVerificationEmail(cleanEmail, otpCode, currentUser.username);
+          otpGenerated = true;
           emailChanged = true;
-          const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-          const otpExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 phút
-
-          emailData = {
-            email: cleanEmail,
-            isEmailVerified: false,
-            emailVerificationToken: otpCode,
-            emailVerificationExpires: otpExpires,
-          };
-
-          // Gửi mã OTP xác thực email
-          try {
-            await sendVerificationEmail(cleanEmail, otpCode, currentUser.username);
-            otpGenerated = true;
-          } catch (mailErr) {
-            console.error("Lỗi gửi email xác thực:", mailErr);
-          }
+        } catch (mailErr) {
+          console.error("Lỗi gửi email xác thực:", mailErr);
         }
       }
     }
@@ -121,7 +160,6 @@ export async function PATCH(req: NextRequest) {
 
     // Nếu người dùng tải lên file ảnh đại diện mới
     if (avatarFile && avatarFile.size > 0 && avatarFile.name) {
-      // Thư mục lưu trữ static của Next.js (phục vụ cho việc bind mount)
       const uploadDir = path.join(process.cwd(), "public", "uploads");
       await mkdir(uploadDir, { recursive: true });
 
@@ -135,7 +173,7 @@ export async function PATCH(req: NextRequest) {
       avatarUrl = `/uploads/${fileName}`;
     }
 
-    const user = await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         displayName,
@@ -149,16 +187,16 @@ export async function PATCH(req: NextRequest) {
     });
 
     return NextResponse.json({
-      id: user.id,
-      displayName: user.displayName,
-      email: user.email,
-      isEmailVerified: user.isEmailVerified,
+      id: updatedUser.id,
+      displayName: updatedUser.displayName,
+      email: updatedUser.email,
+      isEmailVerified: updatedUser.isEmailVerified,
       emailChanged,
       otpGenerated,
-      avatar: user.avatar,
-      bankName: user.bankName,
-      accountNumber: user.accountNumber,
-      accountName: user.accountName,
+      avatar: updatedUser.avatar,
+      bankName: updatedUser.bankName,
+      accountNumber: updatedUser.accountNumber,
+      accountName: updatedUser.accountName,
     });
   } catch (error) {
     console.error("Save settings error:", error);

@@ -1,35 +1,196 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { eventEmitter } from "@/lib/events";
+import { calculateDebts } from "@/lib/debt-calculator";
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { id: groupId } = await params;
+    const userId = user.id;
+
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      include: {
+        owner: {
+          select: {
+            id: true,
+            displayName: true,
+            username: true,
+            avatar: true,
+            bankName: true,
+            accountNumber: true,
+            accountName: true,
+          },
+        },
+        fundManager: {
+          select: {
+            id: true,
+            displayName: true,
+            username: true,
+            avatar: true,
+          },
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                displayName: true,
+                username: true,
+                avatar: true,
+                bankName: true,
+                accountNumber: true,
+                accountName: true,
+              },
+            },
+          },
+          orderBy: { joinedAt: "asc" },
+        },
+        expenses: {
+          include: {
+            paidBy: { select: { id: true, displayName: true, username: true, avatar: true } },
+            createdBy: { select: { id: true, displayName: true, username: true } },
+            splits: {
+              include: {
+                user: { select: { id: true, displayName: true, username: true, avatar: true } },
+              },
+            },
+            categoryRel: true,
+          },
+          orderBy: { date: "desc" },
+        },
+        settlements: {
+          include: {
+            fromUser: { select: { id: true, displayName: true, username: true, avatar: true } },
+            toUser: {
+              select: {
+                id: true,
+                displayName: true,
+                username: true,
+                avatar: true,
+                bankName: true,
+                accountNumber: true,
+                accountName: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+        },
+        fundAllocations: {
+          include: {
+            fromUser: { select: { id: true, displayName: true, username: true, avatar: true } },
+            toUser: { select: { id: true, displayName: true, username: true, avatar: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        },
+        fundContributions: {
+          include: {
+            user: { select: { id: true, displayName: true, username: true, avatar: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        },
+        categories: {
+          orderBy: { name: "asc" },
+        },
+      },
+    });
+
+    if (!group) {
+      return NextResponse.json({ error: "Nhóm không tồn tại" }, { status: 404 });
+    }
+
+    const membership = group.members.find((m) => m.userId === userId && !m.isLeft);
+    if (!membership && group.ownerId !== userId && !user.isAdmin) {
+      return NextResponse.json({ error: "Bạn không phải thành viên của nhóm này" }, { status: 403 });
+    }
+
+    // Calculate debts and balances
+    const activeMembers = group.members.filter((m) => !m.isLeft);
+    const approvedExpenses = group.expenses.filter((e) => e.status === "APPROVED");
+    const { debts, balances } = calculateDebts(
+      approvedExpenses as any,
+      activeMembers as any,
+      group.settlements as any,
+      group.ownerId,
+      group.fundAllocations as any
+    );
+
+    const userBalance = balances.find((b) => b.userId === userId)?.balance ?? 0;
+
+    const totalExpensesAmount = approvedExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalFundContributions = (group.fundContributions || [])
+      .filter((fc) => fc.status === "CONFIRMED")
+      .reduce((sum, fc) => sum + fc.amount, 0);
+    const totalFundExpenses = approvedExpenses
+      .filter((e) => e.fundingSource === "FUND")
+      .reduce((sum, e) => sum + e.amount, 0);
+    const currentFundBalance = totalFundContributions - totalFundExpenses;
+
+    return NextResponse.json({
+      success: true,
+      group,
+      debts,
+      balances,
+      userBalance,
+      userRole: membership?.role || (group.ownerId === userId ? "OWNER" : "MEMBER"),
+      stats: {
+        totalExpensesAmount,
+        totalFundContributions,
+        totalFundExpenses,
+        currentFundBalance,
+      },
+    });
+  } catch (error: any) {
+    console.error("GET group error:", error);
+    return NextResponse.json({ error: error.message || "Lỗi máy chủ" }, { status: 500 });
+  }
+}
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const user = await getAuthUser(req);
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id: groupId } = await params;
-    const userId = session.user.id!;
+    const userId = user.id;
 
     // Verify group exists and user is owner
     const group = await prisma.group.findUnique({ where: { id: groupId } });
     if (!group) return NextResponse.json({ error: "Nhóm không tồn tại" }, { status: 404 });
-    if (group.ownerId !== userId) {
+    if (group.ownerId !== userId && !user.isAdmin) {
       return NextResponse.json(
         { error: "Chỉ trưởng nhóm mới được sửa cài đặt nhóm" },
         { status: 403 }
       );
     }
 
-    const formData = await req.formData();
-    const name = formData.get("name") as string;
-    const description = formData.get("description") as string | null;
-    const avatarFile = formData.get("avatar") as File | null;
+    let name: string;
+    let description: string | null = null;
+    let avatarFile: File | null = null;
+
+    const contentType = req.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const body = await req.json();
+      name = body.name;
+      description = body.description || null;
+    } else {
+      const formData = await req.formData();
+      name = formData.get("name") as string;
+      description = formData.get("description") as string | null;
+      avatarFile = formData.get("avatar") as File | null;
+    }
 
     if (!name || name.trim() === "") {
       return NextResponse.json({ error: "Tên nhóm không được để trống" }, { status: 400 });
@@ -76,25 +237,24 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const user = await getAuthUser(req);
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id: groupId } = await params;
-    const userId = session.user.id!;
+    const userId = user.id;
 
     const group = await prisma.group.findUnique({
       where: { id: groupId },
-      include: {
-        members: { where: { isLeft: false } },
-      },
+      include: { members: true },
     });
 
-    if (!group) return NextResponse.json({ error: "Nhóm không tồn tại" }, { status: 404 });
+    if (!group) {
+      return NextResponse.json({ error: "Nhóm không tồn tại" }, { status: 404 });
+    }
 
-    // Chỉ Trưởng nhóm mới có quyền xoá nhóm
-    if (group.ownerId !== userId) {
+    if (group.ownerId !== userId && !user.isAdmin) {
       return NextResponse.json(
-        { error: "Chỉ Trưởng nhóm mới có quyền xoá nhóm này" },
+        { error: "Chỉ trưởng nhóm mới có quyền xoá nhóm" },
         { status: 403 }
       );
     }
@@ -166,4 +326,3 @@ export async function DELETE(
     );
   }
 }
-

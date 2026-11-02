@@ -7,17 +7,25 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-https://groupsplit.qy286.me}
       - AUTH_TRUST_HOST=true
       - ZALO_BOT_TOKEN=${ZALO_BOT_TOKEN}
       - ZALO_BOT_SECRET_TOKEN=${ZALO_BOT_SECRET_TOKEN}
+      # Firebase FCM Push Notification (Chon 1 trong cac cach):
+      # Cach 1 (Khuyen dung nhat): Chuoi Base64 cua file json (khong lo loi format \n tren Portainer)
+      - FIREBASE_SERVICE_ACCOUNT_BASE64=${FIREBASE_SERVICE_ACCOUNT_BASE64}
+      # Hoac Cach 2: Cac bien le
+      # - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      # - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
+      # - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
     volumes:
-      - ./uploads:/app/public/uploads                     # Bind mount lưu trữ ảnh avatar thực tế của người dùng
+      - ./uploads:/app/public/uploads                     # Bind mount luu tru anh avatar
+      # Hoac Cach 3: Mount truc tiep file json vao container
+      # - ./firebase-service-account.json:/app/firebase-service-account.json:ro
     networks:
-      - proxy-net                                         # Network chung kết nối với Proxy (Nginx Proxy Manager, Traefik...)
-    # Không expose port ra ngoài máy host (bảo mật tối đa, traffic đi hoàn toàn qua proxy network)
+      - proxy-net
 
 networks:
   proxy-net:
     external: true
-    name: proxy                                           # Hãy đổi thành tên network proxy thật trên Portainer của bạn (ví dụ: proxy, nginx-pm...)
+    name: proxy

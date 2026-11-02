@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthUser } from "@/lib/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { eventEmitter } from "@/lib/events";
 import { createNotification } from "@/lib/notifications";
@@ -39,11 +39,11 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: expenseId } = await params;
-  const userId = session.user.id!;
+  const userId = user.id;
 
   const expense = await prisma.expense.findUnique({
     where: { id: expenseId },
@@ -99,11 +99,11 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: expenseId } = await params;
-  const userId = session.user.id!;
+  const userId = user.id;
 
   const expense = await prisma.expense.findUnique({
     where: { id: expenseId },
@@ -223,7 +223,7 @@ export async function PUT(
         await createNotification({
           userId: expense.group.ownerId,
           title: `Hóa đơn đã được chỉnh sửa`,
-          content: `${session.user.name || "Thành viên"} đã chỉnh sửa hóa đơn "${title}" (${formatVND(amount)}) và đang chờ bạn duyệt lại.`,
+          content: `${user.name || "Thành viên"} đã chỉnh sửa hóa đơn "${title}" (${formatVND(amount)}) và đang chờ bạn duyệt lại.`,
           type: "EXPENSE_PENDING",
           link: `/groups/${groupId}`,
           entityId: expenseId,
@@ -232,7 +232,7 @@ export async function PUT(
         const zaloMsg = `🧾 [Hóa đơn đã chỉnh sửa - Chờ duyệt]
 📌 ${title}
 💰 Tổng hóa đơn mới: ${formatVND(amount)}
-👤 Người sửa: ${session.user.name || "Thành viên"}
+👤 Người sửa: ${user.name || "Thành viên"}
 👤 Người chi: ${updatedExpense.paidBy.displayName}
 🏷️ Danh mục: ${category || "Khác"}
 📌 Trạng thái: ⏳ Chờ Trưởng nhóm duyệt lại
@@ -296,11 +296,11 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: expenseId } = await params;
-  const userId = session.user.id!;
+  const userId = user.id;
 
   const expense = await prisma.expense.findUnique({
     where: { id: expenseId },
