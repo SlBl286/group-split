@@ -1,11 +1,11 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/auth.config";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { verifyMobileToken } from "@/lib/mobile-jwt";
 
 const { auth } = NextAuth(authConfig);
 
-export default auth(async (req) => {
+const authHandler = auth(async (req) => {
   const { pathname } = req.nextUrl;
 
   // OWASP Security Headers
@@ -82,6 +82,25 @@ export default auth(async (req) => {
 
   return response;
 });
+
+export default async function proxy(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  // CRITICAL: NextAuth v5's internal `auth(...)` middleware intercepts all `/api/auth/*`
+  // requests before application code. Custom mobile endpoints (e.g. `/api/auth/mobile/*`
+  // and `/api/mobile/*`) MUST bypass NextAuth middleware so Auth.js does not reject
+  // them with 400 "Bad request." for unrecognized actions!
+  if (pathname.startsWith("/api/auth/mobile") || pathname.startsWith("/api/mobile")) {
+    const response = NextResponse.next();
+    response.headers.set("X-Frame-Options", "DENY");
+    response.headers.set("X-Content-Type-Options", "nosniff");
+    response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+    response.headers.set("X-XSS-Protection", "1; mode=block");
+    return response;
+  }
+
+  return (authHandler as any)(req);
+}
 
 export const config = {
   matcher: [
