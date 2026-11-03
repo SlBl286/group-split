@@ -34,7 +34,15 @@ export default async function RegisterPage() {
 
         <RegisterForm />
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
+        <p className="text-center text-xs text-muted-foreground mt-4">
+          Bằng việc đăng ký, bạn đồng ý với{" "}
+          <Link href="/privacy" className="text-primary hover:underline">
+            Chính sách quyền riêng tư
+          </Link>{" "}
+          của GroupSplit.
+        </p>
+
+        <p className="text-center text-sm text-muted-foreground mt-4">
           Đã có tài khoản?{" "}
           <Link
             href="/login"

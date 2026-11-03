@@ -43,6 +43,12 @@ export default async function LoginPage() {
             Đăng ký ngay
           </Link>
         </p>
+
+        <p className="text-center text-xs text-muted-foreground mt-4">
+          <Link href="/privacy" className="hover:text-primary transition-colors">
+            Chính sách quyền riêng tư
+          </Link>
+        </p>
       </div>
     </div>
   );
